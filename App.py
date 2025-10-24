@@ -52,13 +52,13 @@ def handle_register_name(data):
     bienvenida = {
         'text': f'Hola {name}, Bienvenido a Build a Chat. Para empezar, escriba "Menu" para abrir el menú interactivo 🚀',
         'timestamp': data.get("timestamp"),
-        'sender': 'Cientibot'
+        'sender': 'TecBot'
     }
 
     audio_bienvenida = {
         'audio_url': '/static/audio/bienvenida.mp3',
         'timestamp': data.get("timestamp"),
-        'sender': 'Cientibot'
+        'sender': 'Tecbot'
     }
 
     chats.setdefault(user_id, []).extend([bienvenida, audio_bienvenida])

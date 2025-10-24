@@ -47,7 +47,7 @@ socket.on("message", function (data) {
 
         
         const button = document.createElement("button");
-        button.textContent = data.text || " ▶";
+        button.textContent = data.text || "▶";
         button.addEventListener("click", () => {
             const audio = new Audio(data.audio_url);
             audio.play();

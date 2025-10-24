@@ -50,9 +50,9 @@ def handle_register_name(data):
     clientes_conectados[user_id] = {'name': name}
 
     bienvenida = {
-        'text': f'Hola {name}, Bienvenido a Build a Chat. Para empezar, escriba "Menu" para abrir el menú interactivo 🚀',
+        'text': f'Hola {name}, bienvenido a Build a chat. Para empezar, escriba "Menu" para abrir el menú interactivo 🚀',
         'timestamp': data.get("timestamp"),
-        'sender': 'TecBot'
+        'sender': 'Tecbot'
     }
 
     audio_bienvenida = {

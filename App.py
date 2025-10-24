@@ -205,4 +205,3 @@ def handle_return_to_main_menu():
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)
-

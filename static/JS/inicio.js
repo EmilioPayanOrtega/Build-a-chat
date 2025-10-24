@@ -171,7 +171,7 @@ socket.on("message", (data) => {
 
     if (data.audio_url) {
         const button = document.createElement("button");
-        button.textContent = data.text || "Reproducir ▶";
+        button.textContent = data.text || " ▶";
         button.classList.add("menu-button");
         button.addEventListener("click", () => {
             const audio = new Audio(data.audio_url);

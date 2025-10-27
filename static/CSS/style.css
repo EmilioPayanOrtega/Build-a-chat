@@ -198,7 +198,7 @@ body {
 .menu-button{
     display: block;
     width: 80%;
-    padding: 8px 12px;
+    padding: 12px;
     margin: 5px 0;
     background-color: #007bff;
     color: white;
@@ -300,3 +300,4 @@ img {
     padding: 4px 8px;
     border-radius: 12px;
 }
+

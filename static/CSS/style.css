@@ -197,8 +197,8 @@ body {
 
 .menu-button{
     display: block;
-    width: 60%;
-    padding: 12px;
+    max-width: 60%;
+    padding: 8px 12px;
     margin: 5px 0;
     background-color: #007bff;
     color: white;
@@ -212,8 +212,8 @@ body {
 
 .submenu-button {
     display: block;
-    width: 100%;
-    padding: 12px;
+    max-width: 60%;
+    padding: 8px 12px;
     margin: 5px 0;
     background-color: #003366;
     color: white;
@@ -256,8 +256,8 @@ body {
 
 a.submenu-button {
     display: block;
-    width: 100%;
-    padding: 12px;
+    max-width: 60%;
+    padding: 8px 12px;;
     margin: 5px 0;
     background-color: #007bff;
     color: white;

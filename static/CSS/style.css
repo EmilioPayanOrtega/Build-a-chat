@@ -197,7 +197,7 @@ body {
 
 .menu-button{
     display: block;
-    width: 100%;
+    width: 70%;
    padding: 8px 12px;
     margin: 5px 0;
     background-color: #007bff;
@@ -212,7 +212,7 @@ body {
 
 .submenu-button {
     display: block;
-    width: 100%;
+    width: 70%;
     padding: 8px 12px;
     margin: 5px 0;
     background-color: #003366;
@@ -256,7 +256,7 @@ body {
 
 a.submenu-button {
     display: block;
-    width: 100%;
+    width: 70%;
     padding: 8px 12px;
     margin: 5px 0;
     background-color: #007bff;

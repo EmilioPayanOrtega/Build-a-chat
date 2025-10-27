@@ -172,7 +172,7 @@ body {
     padding: 8px 12px;
     border-radius: 10px;
     align-self: flex-end;
-    max-width: 60%;
+    max-width: 50%;
     margin: 5px 0;
     text-align: right;
     font-size: 14px;
@@ -184,7 +184,7 @@ body {
     padding: 8px 12px;
     border-radius: 10px;
     align-self: flex-start;
-    max-width: 60%;
+    max-width: 50%;
     margin: 5px 0;
     border: 1px solid #ccc;
     text-align: left;
@@ -197,7 +197,7 @@ body {
 
 .menu-button{
     display: block;
-    width: 100%;
+    width: 60%;
     padding: 12px;
     margin: 5px 0;
     background-color: #007bff;

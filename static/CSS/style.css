@@ -184,7 +184,7 @@ body {
     padding: 8px 12px;
     border-radius: 10px;
     align-self: flex-start;
-    max-width: 50%;
+    max-width: 60%;
     margin: 5px 0;
     border: 1px solid #ccc;
     text-align: left;
@@ -197,8 +197,8 @@ body {
 
 .menu-button{
     display: block;
-    max-width: 60%;
-    padding: 8px 12px;
+    width: 100%;
+   padding: 8px 12px;
     margin: 5px 0;
     background-color: #007bff;
     color: white;
@@ -212,7 +212,7 @@ body {
 
 .submenu-button {
     display: block;
-    max-width: 60%;
+    width: 100%;
     padding: 8px 12px;
     margin: 5px 0;
     background-color: #003366;
@@ -256,8 +256,8 @@ body {
 
 a.submenu-button {
     display: block;
-    max-width: 60%;
-    padding: 8px 12px;;
+    width: 100%;
+    padding: 8px 12px;
     margin: 5px 0;
     background-color: #007bff;
     color: white;

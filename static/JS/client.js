@@ -16,9 +16,16 @@ socket.on("connected", function (data) {
 });
 
 function getCurrentTimestamp() {
-    return new Date().toLocaleString(); // Fecha y hora local del navegador
+    const now = new Date();
+    return now.toLocaleString("es-MX", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+    });
 }
-
 
 const chatBox = document.getElementById("chat-box");
 const messageInput = document.getElementById("message");
@@ -31,23 +38,46 @@ messageInput.addEventListener("keypress", function (event) {
 
 function sendMessage() {
     const message = messageInput.value.trim();
-    if (message !== "") {
-        socket.emit("message", { text: message,
-        timestamp: getCurrentTimestamp()
-         });
-        messageInput.value = "";
-        
-    }
+    if (message === "") return;
+
+    const timestamp = getCurrentTimestamp();
+
+    socket.emit("message", {
+        text: message,
+        timestamp: timestamp
+    });
+
+    // Mostrar el mensaje en la vista local inmediatamente
+    addMessageToChat({
+        sender: userName,
+        text: message,
+        timestamp: timestamp
+    });
+
+    messageInput.value = "";
 }
 
+// Escucha mensajes desde el servidor
 socket.on("message", function (data) {
+    // Asegura que siempre haya timestamp
+    if (!data.timestamp) {
+        data.timestamp = getCurrentTimestamp();
+    }
+    addMessageToChat(data);
+});
+
+// Función para mostrar mensajes en el chat
+function addMessageToChat(data) {
     const messageElement = document.createElement("div");
+    messageElement.classList.add(
+        data.sender === userName ? "own-message" : "other-message"
+    );
 
+    // Si el mensaje tiene audio
     if (data.audio_url) {
-
-        
         const button = document.createElement("button");
-        button.textContent = data.text || "▶";
+        button.textContent = data.text || "▶ Reproducir";
+        button.classList.add("play-button");
         button.addEventListener("click", () => {
             const audio = new Audio(data.audio_url);
             audio.play();
@@ -57,8 +87,8 @@ socket.on("message", function (data) {
         messageElement.textContent = `${data.sender}: ${data.text} (${data.timestamp})`;
     }
 
-    messageElement.classList.add(data.sender === userName ? "own-message" : "other-message");
     chatBox.appendChild(messageElement);
     chatBox.scrollTop = chatBox.scrollHeight;
-});
+}
+
 

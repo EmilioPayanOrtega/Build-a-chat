@@ -1,4 +1,6 @@
-/* Fuente general y fondo */
+/* ================================
+   ESTILOS GENERALES
+================================ */
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #f2f2f2;
@@ -169,33 +171,37 @@ body {
 .own-message {
     background: #007bff;
     color: white;
-    padding: 8px 12px;
+    padding: 10px 14px;
     border-radius: 10px;
     align-self: flex-end;
-    max-width: 50%;
-    margin: 5px 0;
+    max-width: 70%;
+    margin: 6px 0;
     text-align: right;
     font-size: 14px;
+    line-height: 1.4;
+    word-wrap: break-word;
 }
 
 .other-message {
-    background: white;
+    background: #fff;
     color: black;
-    padding: 8px 12px;
+    padding: 10px 14px;
     border-radius: 10px;
     align-self: flex-start;
-    max-width: 60%;
-    margin: 5px 0;
+    max-width: 70%;
+    margin: 6px 0;
     border: 1px solid #ccc;
     text-align: left;
     font-size: 14px;
+    line-height: 1.4;
+    word-wrap: break-word;
 }
 
 /* ---------------------- */
-/* BOTONES DE MENÚ Y SUBMENÚ */
+/* BOTONES DE MENÚ */
 /* ---------------------- */
 
-.menu-button{
+.menu-button {
     display: block;
     width: 80%;
     padding: 12px;
@@ -233,7 +239,6 @@ body {
     background-color: #002549;
 }
 
-/* Contenedor de menú y submenús */
 .menu-container,
 .submenu-container {
     display: flex;
@@ -242,7 +247,6 @@ body {
     margin: 10px 0;
 }
 
-/* Mensaje encima del menú */
 .menu-message {
     font-weight: bold;
     margin-bottom: 8px;
@@ -274,8 +278,9 @@ a.submenu-button {
 a.submenu-button:hover {
     background-color: #0056b3;
 }
+
 /* ---------------------- */
-/* IMÁGENES EN EL CHAT */
+/* IMÁGENES */
 /* ---------------------- */
 
 img {
@@ -285,6 +290,10 @@ img {
     height: auto;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
+
+/* ---------------------- */
+/* FLUJO DE NAVEGACIÓN */
+/* ---------------------- */
 
 .navigation-flow {
     font-size: 0.9em;
@@ -299,5 +308,30 @@ img {
     background-color: #eef;
     padding: 4px 8px;
     border-radius: 12px;
+}
+
+/* ---------------------- */
+/* BOTÓN DE AUDIO (PLAY) */
+/* ---------------------- */
+
+.audio-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.audio-button:hover {
+    background-color: #0056b3;
+    transform: scale(1.05);
 }
 

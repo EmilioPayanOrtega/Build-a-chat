@@ -18,7 +18,6 @@ function getCurrentTimestamp() {
     return new Date().toLocaleString(); // Fecha y hora local del navegador
 }
 
-
 function sendMessage() {
     const message = messageInput.value.trim();
     if (message !== "" && selectedChat) {

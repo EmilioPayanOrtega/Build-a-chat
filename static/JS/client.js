@@ -14,12 +14,13 @@ socket.on("connected", (data) => {
     socket.emit("join");
 });
 
+// Devuelve timestamp ISO (UTC)
 function getCurrentTimestamp() {
-    return new Date().toISOString(); // formato ISO UTC
+    return new Date().toISOString();
 }
 
+// Convierte a hora local legible (igual que la del invitado)
 function formatTimestampToLocal(iso) {
-    if (!iso) return "";
     try {
         const date = new Date(iso);
         return date.toLocaleString("es-MX", {
@@ -75,21 +76,17 @@ function addMessageToChat(data) {
     const time = formatTimestampToLocal(data.timestamp);
 
     if (data.audio_url) {
+        // === Botón de audio limpio, sin texto ===
         const button = document.createElement("button");
-        button.innerHTML = `▶ ${data.text || " "}`;
-        button.classList.add("play-button");
-        button.style.display = "inline-flex";
-        button.style.alignItems = "center";
-        button.style.padding = "6px 10px";
-        button.style.borderRadius = "8px";
-        button.style.cursor = "pointer";
-        button.style.whiteSpace = "nowrap";
+        button.innerHTML = "▶";
+        button.classList.add("audio-button");
         button.addEventListener("click", () => {
             const audio = new Audio(data.audio_url);
             audio.play();
         });
         messageElement.appendChild(button);
     } else {
+        // Mensaje normal con formato igual al invitado
         messageElement.textContent = `${data.sender}: ${data.text} (${time})`;
     }
 

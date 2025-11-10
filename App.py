@@ -1,218 +1,178 @@
-from gevent import monkey
-monkey.patch_all()
-
 from flask import Flask, render_template, request
-from flask_socketio import SocketIO, emit, join_room
-from menu_config import menu_config
-from datetime import datetime
+from flask_socketio import SocketIO, emit, join_room, leave_room
+from datetime import datetime, timedelta
+from threading import Lock
+import time
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
-socketio = SocketIO(app, async_mode='gevent', manage_session=False)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-chats = {}
-clientes_conectados = {}
+# Control de sesiones
+clients = {}  # { sid: {"id": int, "name": str, "last_active": datetime} }
+admin_sid = None
+client_id_counter = 1
+lock = Lock()
 
-timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+# ======================
+#       RUTAS
+# ======================
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-@app.route('/')
-def client_page():
-    return render_template('index.html')
+@app.route("/admin")
+def admin_panel():
+    return render_template("admin.html")
 
-@app.route('/admin')
-def admin_page():
-    return render_template('admin.html')
 
-@socketio.on('connect')
+# ======================
+#  FUNCIONES AUXILIARES
+# ======================
+def get_timestamp():
+    """Devuelve un timestamp legible."""
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def remove_inactive_clients():
+    """Desconecta clientes inactivos tras 10 minutos."""
+    now = datetime.now()
+    with lock:
+        inactive = [
+            sid for sid, data in clients.items()
+            if now - data["last_active"] > timedelta(minutes=10)
+        ]
+        for sid in inactive:
+            user_id = clients[sid]["id"]
+            print(f"[AUTO-DISCONNECT] Cliente {user_id} por inactividad.")
+            socketio.emit("client_disconnected", {"id": user_id}, to=admin_sid)
+            leave_room(user_id)
+            del clients[sid]
+
+
+# ======================
+#   EVENTOS DE SOCKETIO
+# ======================
+
+@socketio.on("connect")
 def handle_connect():
-    emit('connected', {'user_id': request.sid})
+    print(f"[INFO] Cliente conectado: {request.sid}")
 
-@socketio.on('disconnect')
+
+@socketio.on("disconnect")
 def handle_disconnect():
-    user_id = request.sid
-    clientes_conectados.pop(user_id, None)
-    chats.pop(user_id, None)
-    emit('update_chat_list', [
-        {'user_id': uid, 'name': info['name']}
-        for uid, info in clientes_conectados.items()
-    ], broadcast=True)
+    global admin_sid
+    sid = request.sid
 
-@socketio.on('join')
-def handle_join():
-    user_id = request.sid
-    join_room(user_id)
-    if user_id not in chats:
-        chats[user_id] = []
-    emit('chat_history', chats[user_id], room=user_id)
-
-@socketio.on('register_name')
-def handle_register_name(data):
-    name = data.get('name', 'Invitado')
-    user_id = request.sid
-    clientes_conectados[user_id] = {'name': name}
-
-    bienvenida = {
-        'text': f'Hola {name}, bienvenido a Build a chat. Para empezar, escriba "Menu" para abrir el menú interactivo 🚀',
-        'timestamp': data.get("timestamp"),
-        'sender': 'Tecbot'
-    }
-
-    audio_bienvenida = {
-        'audio_url': '/static/audio/bienvenida.mp3',
-        'timestamp': data.get("timestamp"),
-        'sender': 'Tecbot'
-    }
-
-    chats.setdefault(user_id, []).extend([bienvenida, audio_bienvenida])
-    emit('message', bienvenida, room=user_id)
-    emit('message', audio_bienvenida, room=user_id)
-    emit('message_admin', {'user_id': user_id, 'message': bienvenida}, broadcast=True)
-    emit('message_admin', {'user_id': user_id, 'message': audio_bienvenida}, broadcast=True)
-
-    emit('update_chat_list', [
-        {'user_id': uid, 'name': info['name']}
-        for uid, info in clientes_conectados.items()
-    ], broadcast=True)
-
-@socketio.on('message')
-def handle_message(data):
-    user_id = request.sid
-    name = clientes_conectados.get(user_id, {}).get('name', 'Invitado')
-    text = data['text'].strip().lower()
-
-    msg = {
-        'text': data['text'],
-        'timestamp': data.get("timestamp"),
-        'sender': name
-    }
-    chats.setdefault(user_id, []).append(msg)
-
-    emit('message', msg, room=user_id)
-     
-    emit('message_admin', {
-        'user_id': user_id, 
-        'message': msg,
-        'timestamp':timestamp
-        }, broadcast=True)
-
-    if text == "menu":
-        emit('show_menu', room=user_id)
-
-@socketio.on('menu_option_selected')
-def handle_menu_option(data):
-    user_id = request.sid
-    option_id = data.get('id')
-    option = menu_config.get(option_id)
-
-    if not option:
+    # Si es el admin
+    if sid == admin_sid:
+        print("[INFO] Admin desconectado.")
+        admin_sid = None
         return
 
-    if option["type"] == "link":
-        emit('show_link', {
-            'label': option["label"],
-            'link': option["link"]
-        }, room=user_id)
-
-    elif option["type"] == "submenu":
-        emit('show_submenu', {
-            'submenu': [
-                {"id": item["id"], "label": item["label"]}
-                for item in option["submenu"]
-            ]
-        }, room=user_id)
-
-    elif option["type"] == "info":
-        emit('show_info', {
-            'label': option["label"],
-            'text': option["text"]
-        }, room=user_id)
-
-    elif option["type"] == "image":
-        emit('show_map', {
-            'image': option["image"],
-            'label': option.get("label", "Imagen")
-        }, room=user_id)
-
-@socketio.on('submenu_option_selected')
-def handle_submenu_option(data):
-    user_id = request.sid
-    option_id = data.get('id')
-
-    def find_option_by_id(menu, target_id):
-        if isinstance(menu, dict):
-            # Caso 1: este nodo tiene el id buscado
-            if menu.get("id") == target_id:
-                return menu
-            # Caso 2: si tiene un submenu, recorrerlo
-            if "submenu" in menu:
-                for item in menu["submenu"]:
-                    result = find_option_by_id(item, target_id)
-                    if result:
-                        return result
-            # Caso 3: recorrer todos los valores del diccionario si está en la raíz
-            for key in menu:
-                result = find_option_by_id(menu[key], target_id)
-                if result:
-                    return result
-        elif isinstance(menu, list):
-            for item in menu:
-                result = find_option_by_id(item, target_id)
-                if result:
-                    return result
-        return None
+    # Si es un cliente
+    if sid in clients:
+        user_id = clients[sid]["id"]
+        print(f"[INFO] Cliente {user_id} desconectado.")
+        socketio.emit("client_disconnected", {"id": user_id}, to=admin_sid)
+        del clients[sid]
 
 
-    option = find_option_by_id(menu_config, option_id)
+@socketio.on("client_connected")
+def client_connected(data=None):
+    """Un cliente nuevo entra al chat."""
+    global client_id_counter
+    with lock:
+        user_id = client_id_counter
+        client_id_counter += 1
 
-    if not option:
+    name = f"Cliente {user_id}"
+    clients[request.sid] = {"id": user_id, "name": name, "last_active": datetime.now()}
+
+    join_room(user_id)
+    print(f"[NUEVO CLIENTE] {name} conectado con ID {user_id}")
+
+    emit("client_id", {"id": user_id, "name": name})
+    update_admin_clients()
+
+
+@socketio.on("admin_connected")
+def admin_connected():
+    """El administrador se conecta."""
+    global admin_sid
+    admin_sid = request.sid
+    print("[ADMIN] Conectado")
+    update_admin_clients()
+
+
+def update_admin_clients():
+    """Envía al admin la lista actualizada de clientes."""
+    if admin_sid:
+        client_list = [
+            {"id": data["id"], "name": data["name"]}
+            for data in clients.values()
+        ]
+        socketio.emit("client_list", client_list, to=admin_sid)
+
+
+@socketio.on("client_message")
+def handle_client_message(data):
+    """Recibe mensaje del cliente y lo reenvía al admin."""
+    sid = request.sid
+    if sid not in clients:
         return
 
-    if option["type"] == "link":
-        emit('show_link', {
-            'label': option["label"],
-            'link': option["link"]
-        }, room=user_id)
+    clients[sid]["last_active"] = datetime.now()
+    user_id = clients[sid]["id"]
+    name = clients[sid]["name"]
 
-    elif option["type"] == "info":
-        emit('show_info', {
-            'label': option["label"],
-            'text': option["text"]
-        }, room=user_id)
+    message = {
+        "user_id": user_id,
+        "sender": name,
+        "text": data.get("text", ""),
+        "timestamp": get_timestamp()
+    }
 
-    elif option["type"] == "submenu":
-        emit('show_submenu', {
-            'submenu': [
-                {"id": item["id"], "label": item["label"]}
-                for item in option["submenu"]
-            ]
-        }, room=user_id)
+    print(f"[MENSAJE CLIENTE] {name}: {message['text']}")
 
-@socketio.on('admin_select_chat')
-def admin_select_chat(data):
-    user_id = data['user_id']
-    join_room(user_id)
-    emit('chat_history', chats.get(user_id, []), room=request.sid)
+    # Reenviar al admin
+    if admin_sid:
+        socketio.emit("message_from_client", message, to=admin_sid)
 
-@socketio.on('admin_message')
+
+@socketio.on("admin_message")
 def handle_admin_message(data):
-    user_id = data['user_id']
-    msg = {
-        'text': data['text'],
-        'timestamp': data.get("timestamp"),
-        'sender': 'Admin'
+    """Recibe mensaje del admin y lo reenvía al cliente destino."""
+    to_id = data.get("to")
+    if not to_id:
+        return
+
+    message = {
+        "sender": "Admin",
+        "text": data.get("text", ""),
+        "timestamp": data.get("timestamp", get_timestamp())
     }
-    chats.setdefault(user_id, []).append(msg)
-    emit('message', msg, room=user_id)
-    emit('message_admin', {
-        'user_id': user_id, 
-        'message': msg,
-        'timestamp':timestamp
-        }, room=request.sid)
 
-@socketio.on('return_to_main_menu')
-def handle_return_to_main_menu():
-    user_id = request.sid
-    emit('show_menu', room=user_id)
+    print(f"[MENSAJE ADMIN → {to_id}] {message['text']}")
 
-if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    # Enviar al cliente correspondiente
+    for sid, info in clients.items():
+        if info["id"] == to_id:
+            socketio.emit("message_from_admin", message, to=sid)
+            break
+
+
+# ======================
+#   HILO DE LIMPIEZA
+# ======================
+def background_cleanup():
+    while True:
+        remove_inactive_clients()
+        time.sleep(60)  # Verifica cada minuto
+
+socketio.start_background_task(background_cleanup)
+
+
+# ======================
+#       MAIN
+# ======================
+if __name__ == "__main__":
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True)

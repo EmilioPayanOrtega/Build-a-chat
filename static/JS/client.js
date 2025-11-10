@@ -76,7 +76,7 @@ function addMessageToChat(data) {
 
     if (data.audio_url) {
         const button = document.createElement("button");
-        button.innerHTML = `▶ ${data.text || ""}`;
+        button.innerHTML = `▶ ${data.text || " "}`;
         button.classList.add("play-button");
         button.style.display = "inline-flex";
         button.style.alignItems = "center";

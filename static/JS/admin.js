@@ -1,32 +1,47 @@
-
-const socket = io(); 
+const socket = io();
 const chatList = document.getElementById("chat-list");
 const chatBox = document.getElementById("chat-box");
 const messageInput = document.getElementById("admin-message");
 const sendButton = document.getElementById("send-admin");
 
 let selectedChat = null;
-let adminId = "Admin"; // Identificador fijo para el administrador
-
-// Enviar mensaje al presionar botón o Enter
-sendButton.addEventListener("click", sendMessage);
-messageInput.addEventListener("keypress", function (event) {
-    if (event.key === "Enter") sendMessage();
-});
+const adminId = "Admin";
 
 function getCurrentTimestamp() {
-    return new Date().toLocaleString(); // Fecha y hora local del navegador
+    return new Date().toISOString();
 }
+
+function formatTimestampToLocal(iso) {
+    if (!iso) return "";
+    try {
+        const date = new Date(iso);
+        return date.toLocaleString("es-MX", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        });
+    } catch {
+        return iso;
+    }
+}
+
+sendButton.addEventListener("click", sendMessage);
+messageInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") sendMessage();
+});
 
 function sendMessage() {
     const message = messageInput.value.trim();
-    if (message !== "" && selectedChat) {
+    if (message && selectedChat) {
         const messageData = {
             user_id: selectedChat,
             text: message,
-            sender: adminId
+            sender: adminId,
+            timestamp: getCurrentTimestamp()
         };
-
         socket.emit("admin_message", messageData);
         messageInput.value = "";
     }
@@ -34,20 +49,25 @@ function sendMessage() {
 
 function displayMessage(data) {
     const messageElement = document.createElement("div");
-
-    const senderIsAdmin = data.sender === "Admin" || data.sender === adminId;
+    const senderIsAdmin = data.sender === "Admin";
     const senderLabel = senderIsAdmin ? "Tú" : data.sender;
+    const humanTs = formatTimestampToLocal(data.timestamp);
 
     if (data.audio_url) {
         const button = document.createElement("button");
-        button.textContent = ` ${senderLabel}: Reproducir audio`;
-        button.onclick = () => {
+        button.innerHTML = `▶ ${senderLabel}: ${data.text || "Reproducir audio"}`;
+        button.classList.add("play-button");
+        button.style.display = "inline-flex";
+        button.style.alignItems = "center";
+        button.style.padding = "6px 10px";
+        button.style.borderRadius = "8px";
+        button.addEventListener("click", () => {
             const audio = new Audio(data.audio_url);
             audio.play();
-        };
+        });
         messageElement.appendChild(button);
     } else {
-        messageElement.textContent = ` ${senderLabel}: ${data.text}`;
+        messageElement.textContent = ` ${senderLabel}: ${data.text} (${humanTs})`;
     }
 
     messageElement.classList.add(senderIsAdmin ? "own-message" : "other-message");
@@ -55,20 +75,14 @@ function displayMessage(data) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// Actualizar lista de clientes conectados
-socket.on("update_chat_list", function (clients) {
+socket.on("update_chat_list", (clients) => {
     chatList.innerHTML = "";
-    clients.forEach(client => {
+    clients.forEach((client) => {
         const name = client.name || "Invitado";
         const clientElement = document.createElement("button");
-
-        clientElement.innerHTML = `
-            <strong>${name}</strong><br>
-            <small>ID: ${client.user_id}</small>
-        `;
-
+        clientElement.innerHTML = `<strong>${name}</strong><br><small>ID: ${client.user_id}</small>`;
         clientElement.classList.add("chat-button");
-        clientElement.addEventListener("click", function () {
+        clientElement.addEventListener("click", () => {
             selectedChat = client.user_id;
             document.getElementById("selected-user").textContent = name;
             document.getElementById("selected-id").textContent = client.user_id;
@@ -78,31 +92,13 @@ socket.on("update_chat_list", function (clients) {
     });
 });
 
-// Mostrar historial del chat seleccionado
-socket.on("chat_history", function (messages) {
+socket.on("chat_history", (messages) => {
     chatBox.innerHTML = "";
-    messages.forEach(msg => displayMessage(msg));
+    messages.forEach((msg) => displayMessage(msg));
 });
 
-// Mostrar nuevos mensajes del cliente o del sistema
-socket.on("message_admin", function (data) {
+socket.on("message_admin", (data) => {
     if (selectedChat === data.user_id) {
-        displayMessage({
-            text: data.message.text,
-            sender: data.message.sender,
-            timestamp: data.message.timestamp,
-            audio_url: data.message.audio_url || null
-        });
-    }
-});
-
-// Mostrar interacciones del cliente con el menú
-socket.on("menu_interaction", function (data) {
-    if (selectedChat === data.user_id) {
-        const message = {
-            text: `El cliente seleccionó: ${data.selection}`,
-            sender: "Asistente"
-        };
-        displayMessage(message);
+        displayMessage(data.message);
     }
 });

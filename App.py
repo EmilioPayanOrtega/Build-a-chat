@@ -10,6 +10,7 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 socketio = SocketIO(app, async_mode='gevent', manage_session=False)
 
+# Diccionarios para manejar sesiones y chats
 chats = {}
 clientes_conectados = {}
 
@@ -53,26 +54,34 @@ def handle_register_name(data):
     user_id = request.sid
     clientes_conectados[user_id] = {'name': name}
 
+    # Mensaje de bienvenida normal
     bienvenida = {
-        'text': f'Hola {name}, bienvenido a Build a chat. Para empezar, escriba "Menu" para abrir el menú interactivo 🚀',
+        'text': f'Hola {name}, bienvenido a Build a Chat. '
+                f'Para empezar, escriba "Menu" para abrir el menú interactivo 🚀',
         'timestamp': current_timestamp(),
         'sender': 'Tecbot'
     }
 
-  audio_bienvenida = {
-    'audio_url': '/static/audio/bienvenida.mp3',
-    'text': "",  
-    'timestamp': current_timestamp(),
-    'sender': 'Tecbot'
-}
+    # Mensaje con audio (sin texto ▶)
+    audio_bienvenida = {
+        'audio_url': '/static/audio/bienvenida.mp3',
+        'text': '',  # ← sin el carácter ▶ para evitar el recorte visual
+        'timestamp': current_timestamp(),
+        'sender': 'Tecbot'
+    }
 
-
+    # Guardamos en historial
     chats.setdefault(user_id, []).extend([bienvenida, audio_bienvenida])
+
+    # Enviamos ambos al cliente
     emit('message', bienvenida, room=user_id)
     emit('message', audio_bienvenida, room=user_id)
+
+    # Enviamos también al panel del admin
     emit('message_admin', {'user_id': user_id, 'message': bienvenida}, broadcast=True)
     emit('message_admin', {'user_id': user_id, 'message': audio_bienvenida}, broadcast=True)
 
+    # Actualizamos lista de clientes conectados
     emit('update_chat_list', [
         {'user_id': uid, 'name': info['name']}
         for uid, info in clientes_conectados.items()
@@ -89,11 +98,15 @@ def handle_message(data):
         'timestamp': timestamp,
         'sender': name
     }
+
+    # Guardar mensaje
     chats.setdefault(user_id, []).append(msg)
 
+    # Enviar al propio usuario y al admin
     emit('message', msg, room=user_id)
     emit('message_admin', {'user_id': user_id, 'message': msg}, broadcast=True)
 
+    # Si el usuario escribe "menu"
     if data['text'].strip().lower() == "menu":
         emit('show_menu', room=user_id)
 
@@ -107,15 +120,12 @@ def handle_menu_option(data):
 
     if option["type"] == "link":
         emit('show_link', {'label': option["label"], 'link': option["link"]}, room=user_id)
-
     elif option["type"] == "submenu":
         emit('show_submenu', {
             'submenu': [{"id": item["id"], "label": item["label"]} for item in option["submenu"]]
         }, room=user_id)
-
     elif option["type"] == "info":
         emit('show_info', {'label': option["label"], 'text': option["text"]}, room=user_id)
-
     elif option["type"] == "image":
         emit('show_map', {'image': option["image"], 'label': option.get("label", "Imagen")}, room=user_id)
 

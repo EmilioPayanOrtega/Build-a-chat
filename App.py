@@ -61,7 +61,7 @@ def handle_register_name(data):
 
     audio_bienvenida = {
         'audio_url': '/static/audio/bienvenida.mp3',
-        'text': "▶ ,
+        'text': "▶ ",
         'timestamp': current_timestamp(),
         'sender': 'Tecbot'
     }

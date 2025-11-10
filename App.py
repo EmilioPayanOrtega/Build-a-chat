@@ -59,12 +59,13 @@ def handle_register_name(data):
         'sender': 'Tecbot'
     }
 
-    audio_bienvenida = {
-        'audio_url': '/static/audio/bienvenida.mp3',
-        'text': "▶  ",
-        'timestamp': current_timestamp(),
-        'sender': 'Tecbot'
-    }
+  audio_bienvenida = {
+    'audio_url': '/static/audio/bienvenida.mp3',
+    'text': "",  
+    'timestamp': current_timestamp(),
+    'sender': 'Tecbot'
+}
+
 
     chats.setdefault(user_id, []).extend([bienvenida, audio_bienvenida])
     emit('message', bienvenida, room=user_id)

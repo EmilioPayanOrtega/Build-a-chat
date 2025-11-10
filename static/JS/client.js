@@ -91,4 +91,3 @@ function addMessageToChat(data) {
     chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-

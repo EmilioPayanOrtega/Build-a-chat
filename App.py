@@ -4,7 +4,7 @@ monkey.patch_all()
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room
 from menu_config import menu_config
-
+from datetime import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -12,6 +12,8 @@ socketio = SocketIO(app, async_mode='gevent', manage_session=False)
 
 chats = {}
 clientes_conectados = {}
+
+timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
 
 @app.route('/')
 def client_page():
@@ -86,7 +88,12 @@ def handle_message(data):
     chats.setdefault(user_id, []).append(msg)
 
     emit('message', msg, room=user_id)
-    emit('message_admin', {'user_id': user_id, 'message': msg}, broadcast=True)
+     
+    emit('message_admin', {
+        'user_id': user_id, 
+        'message': msg,
+        'timestamp':timestamp
+        }, broadcast=True)
 
     if text == "menu":
         emit('show_menu', room=user_id)
@@ -196,7 +203,11 @@ def handle_admin_message(data):
     }
     chats.setdefault(user_id, []).append(msg)
     emit('message', msg, room=user_id)
-    emit('message_admin', {'user_id': user_id, 'message': msg}, room=request.sid)
+    emit('message_admin', {
+        'user_id': user_id, 
+        'message': msg,
+        'timestamp':timestamp
+        }, room=request.sid)
 
 @socketio.on('return_to_main_menu')
 def handle_return_to_main_menu():

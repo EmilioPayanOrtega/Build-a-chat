@@ -5,26 +5,34 @@ let userName = null;
 window.addEventListener("DOMContentLoaded", () => {
     userName = prompt("Ingresa tu nombre:");
     if (!userName) userName = "Invitado";
-
     document.getElementById("user-name").textContent = userName;
     socket.emit("register_name", { name: userName });
 });
 
-socket.on("connected", function (data) {
+socket.on("connected", (data) => {
     userId = data.user_id;
     socket.emit("join");
 });
 
 function getCurrentTimestamp() {
-    const now = new Date();
-    return now.toLocaleString("es-MX", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-    });
+    return new Date().toISOString(); // formato ISO UTC
+}
+
+function formatTimestampToLocal(iso) {
+    if (!iso) return "";
+    try {
+        const date = new Date(iso);
+        return date.toLocaleString("es-MX", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        });
+    } catch {
+        return iso;
+    }
 }
 
 const chatBox = document.getElementById("chat-box");
@@ -32,8 +40,8 @@ const messageInput = document.getElementById("message");
 const sendButton = document.getElementById("send");
 
 sendButton.addEventListener("click", sendMessage);
-messageInput.addEventListener("keypress", function (event) {
-    if (event.key === "Enter") sendMessage();
+messageInput.addEventListener("keypress", (e) => {
+    if (e.key === "Enter") sendMessage();
 });
 
 function sendMessage() {
@@ -42,52 +50,49 @@ function sendMessage() {
 
     const timestamp = getCurrentTimestamp();
 
-    socket.emit("message", {
-        text: message,
-        timestamp: timestamp
-    });
+    socket.emit("message", { text: message, timestamp });
 
-    // Mostrar el mensaje en la vista local inmediatamente
     addMessageToChat({
         sender: userName,
         text: message,
-        timestamp: timestamp
+        timestamp
     });
 
     messageInput.value = "";
 }
 
-// Escucha mensajes desde el servidor
-socket.on("message", function (data) {
-    // Asegura que siempre haya timestamp
-    if (!data.timestamp) {
-        data.timestamp = getCurrentTimestamp();
-    }
+socket.on("message", (data) => {
+    if (!data.timestamp) data.timestamp = getCurrentTimestamp();
     addMessageToChat(data);
 });
 
-// Función para mostrar mensajes en el chat
 function addMessageToChat(data) {
     const messageElement = document.createElement("div");
     messageElement.classList.add(
         data.sender === userName ? "own-message" : "other-message"
     );
 
-    // Si el mensaje tiene audio
+    const time = formatTimestampToLocal(data.timestamp);
+
     if (data.audio_url) {
         const button = document.createElement("button");
-        button.textContent = data.text || "▶ Reproducir";
+        button.innerHTML = `▶ ${data.text || "Reproducir audio"}`;
         button.classList.add("play-button");
+        button.style.display = "inline-flex";
+        button.style.alignItems = "center";
+        button.style.padding = "6px 10px";
+        button.style.borderRadius = "8px";
+        button.style.cursor = "pointer";
+        button.style.whiteSpace = "nowrap";
         button.addEventListener("click", () => {
             const audio = new Audio(data.audio_url);
             audio.play();
         });
         messageElement.appendChild(button);
     } else {
-        messageElement.textContent = `${data.sender}: ${data.text} (${data.timestamp})`;
+        messageElement.textContent = `${data.sender}: ${data.text} (${time})`;
     }
 
     chatBox.appendChild(messageElement);
     chatBox.scrollTop = chatBox.scrollHeight;
 }
-

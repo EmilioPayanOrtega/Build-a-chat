@@ -1,3 +1,4 @@
+// static/JS/inicio.js
 const socket = io();
 let userId = null;
 let userName = null;
@@ -25,7 +26,25 @@ messageInput.addEventListener("keypress", (event) => {
 });
 
 function getCurrentTimestamp() {
-    return new Date().toLocaleString();
+    return new Date().toISOString();
+}
+
+// ✅ Nuevo formateador de hora
+function formatTimestamp(timestamp) {
+    try {
+        const d = new Date(timestamp);
+        if (isNaN(d)) return timestamp;
+        return d.toLocaleString("es-MX", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit"
+        });
+    } catch {
+        return timestamp;
+    }
 }
 
 function sendMessage() {
@@ -63,11 +82,8 @@ function addReturnButton() {
     };
 
     const container = document.querySelector(".submenu-container");
-    if (container) {
-        container.appendChild(returnBtn);
-    }
+    if (container) container.appendChild(returnBtn);
 }
-
 
 socket.on("show_menu", () => {
     clearMenus();
@@ -166,23 +182,35 @@ socket.on("show_map", (data) => {
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
+// ✅ Mensajes con texto o audio (corregido)
 socket.on("message", (data) => {
     const messageElement = document.createElement("div");
 
     if (data.audio_url) {
+        // nuevo estilo del botón de audio
+        const audioWrapper = document.createElement("div");
+        audioWrapper.classList.add("audio-wrapper", "other-message");
+
         const button = document.createElement("button");
-        button.textContent = data.text || "▶  ";
-        button.classList.add("menu-button");
+        button.innerHTML = "▶";
+        button.classList.add("audio-button");
         button.addEventListener("click", () => {
             const audio = new Audio(data.audio_url);
             audio.play();
         });
-        messageElement.appendChild(button);
+
+        const time = document.createElement("div");
+        time.classList.add("audio-timestamp");
+        time.textContent = formatTimestamp(data.timestamp);
+
+        audioWrapper.appendChild(button);
+        audioWrapper.appendChild(time);
+        chatBox.appendChild(audioWrapper);
     } else {
-        messageElement.textContent = `${data.sender}: ${data.text} (${data.timestamp})`;
+        messageElement.classList.add(data.sender === userName ? "own-message" : "other-message");
+        messageElement.textContent = `${data.sender}: ${data.text} (${formatTimestamp(data.timestamp)})`;
+        chatBox.appendChild(messageElement);
     }
 
-    messageElement.classList.add(data.sender === userName ? "own-message" : "other-message");
-    chatBox.appendChild(messageElement);
     chatBox.scrollTop = chatBox.scrollHeight;
 });

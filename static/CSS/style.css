@@ -201,12 +201,12 @@ body {
 /* BOTONES DE MENÚ */
 /* ---------------------- */
 
-.menu-button {
+.menu-button,
+.submenu-button {
     display: block;
     width: 80%;
     padding: 12px;
     margin: 5px 0;
-    background-color: #007bff;
     color: white;
     border: none;
     border-radius: 6px;
@@ -216,19 +216,12 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+.menu-button {
+    background-color: #007bff;
+}
+
 .submenu-button {
-    display: block;
-    width: 80%;
-    padding: 12px;
-    margin: 5px 0;
     background-color: #003366;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 15px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 .menu-button:hover {
@@ -265,7 +258,6 @@ a.submenu-button {
     margin: 5px 0;
     background-color: #007bff;
     color: white;
-    border: none;
     border-radius: 6px;
     font-size: 15px;
     text-align: center;
@@ -314,14 +306,27 @@ img {
 /* BOTÓN DE AUDIO (PLAY) */
 /* ---------------------- */
 
+/* envoltorio de mensaje de audio (elimina bordes del mensaje normal) */
+.audio-wrapper {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 8px 0 !important;
+    max-width: fit-content !important;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+/* botón de audio redondo */
 .audio-button {
     background-color: #007bff;
     color: white;
     border: none;
     border-radius: 50%;
-    width: 60px;
-    height: 48px;
-    font-size: 20px;
+    width: 54px;
+    height: 54px;
+    font-size: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -335,42 +340,11 @@ img {
     transform: scale(1.05);
 }
 
-/* ------- ajustes para audio (wrapper + botón) ------- */
-
-/* cuando un other/own message actúa como wrapper de audio, quitamos el padding y borde */
-.audio-wrapper {
-    background: transparent !important;
-    border: none !important;
-    padding: 0 !important;
-    margin: 6px 0 !important;
-    max-width: none !important;
-}
-
-/* botón de audio redondo, solo ▶ */
-.audio-button {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background-color: #007bff;
-    color: white;
-    font-size: 20px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-    cursor: pointer;
-    padding: 0;
-    margin-left: 6px;
-}
-
-/* si quieres un pequeño timestamp debajo del botón */
+/* timestamp debajo del botón */
 .audio-ts {
     font-size: 12px;
     color: #666;
     margin-top: 4px;
-    margin-left: 6px;
+    text-align: center;
+    width: 100%;
 }
-
-/* asegúrate que los .other-message y .own-message no apliquen padding extra cuando son audio-wrapper */
-/* (la regla .audio-wrapper arriba anula con !important) */

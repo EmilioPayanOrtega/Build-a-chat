@@ -1,159 +1,190 @@
+// -----------------------------
+// Panel de Administración
+// -----------------------------
+
 const socket = io();
 
-let adminId = null;
-let selectedClientId = null;
-let clients = {}; // {clientId: {name, messages: []}}
+// Contenedores
+const chatList = document.getElementById('chat-list');
+const selectedUser = document.getElementById('selected-user');
+const selectedId = document.getElementById('selected-id');
+const chatWindow = document.querySelector('.chat-window');
+const messageInput = document.getElementById('admin-message');
+const sendButton = document.getElementById('send-admin');
 
-// ===============================
-// 1️⃣ Al iniciar, registra al admin
-// ===============================
-window.addEventListener("DOMContentLoaded", () => {
-    const adminName = prompt("Ingresa tu nombre de administrador:") || "Administrador";
-    document.getElementById("chat-header").textContent = `Panel del Admin - ${adminName}`;
-    socket.emit("register_admin", { name: adminName });
+// Estado actual
+let currentUserId = null;
+let chats = {}; // { user_id: [mensajes] }
+
+// Al conectar, avisamos que somos admin
+socket.on('connect', () => {
+    console.log('Conectado al servidor como ADMIN.');
+    socket.emit('admin_join');
 });
 
-// ===============================
-// 2️⃣ Referencias del DOM
-// ===============================
-const chatList = document.getElementById("chat-list");
-const chatBox = document.getElementById("chat-box");
-const messageInput = document.getElementById("message");
-const sendButton = document.getElementById("send");
+// -----------------------------
+// ACTUALIZAR LISTA DE CLIENTES
+// -----------------------------
+socket.on('update_chat_list', (clientes) => {
+    chatList.innerHTML = '';
 
-sendButton.addEventListener("click", sendMessage);
-messageInput.addEventListener("keypress", (e) => {
-    if (e.key === "Enter") sendMessage();
-});
+    if (!clientes || clientes.length === 0) {
+        chatList.innerHTML = '<p class="no-clients">No hay clientes conectados.</p>';
+        return;
+    }
 
-// ===============================
-// 3️⃣ Funciones de utilidad
-// ===============================
-function getCurrentTimestamp() {
-    return new Date().toISOString();
-}
+    clientes.forEach(cliente => {
+        const item = document.createElement('div');
+        item.classList.add('chat-item');
+        item.dataset.userId = cliente.user_id;
+        item.innerHTML = `
+            <strong>${cliente.name}</strong>
+            <span class="client-id">${cliente.user_id.substring(0, 6)}...</span>
+        `;
 
-function formatTimestampToLocal(iso) {
-    if (!iso) return "";
-    const date = new Date(iso);
-    if (isNaN(date)) return iso;
-    return date.toLocaleString("es-MX", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
+        // Al hacer clic, seleccionar chat
+        item.addEventListener('click', () => {
+            seleccionarChat(cliente.user_id, cliente.name);
+        });
+
+        chatList.appendChild(item);
     });
-}
-
-// ===============================
-// 4️⃣ Manejo de clientes conectados
-// ===============================
-socket.on("connected_clients", (data) => {
-    clients = data.clients;
-    renderClientList();
 });
 
-socket.on("new_client", (data) => {
-    clients[data.id] = { name: data.name || "Invitado", messages: [] };
-    renderClientList();
-});
+// -----------------------------
+// SELECCIONAR CHAT
+// -----------------------------
+function seleccionarChat(userId, name) {
+    currentUserId = userId;
+    selectedUser.textContent = name;
+    selectedId.textContent = userId.substring(0, 6) + '...';
+    document.querySelectorAll('.chat-item').forEach(i => i.classList.remove('active'));
+    const activo = [...chatList.children].find(i => i.dataset.userId === userId);
+    if (activo) activo.classList.add('active');
 
-socket.on("client_disconnected", (clientId) => {
-    delete clients[clientId];
-    renderClientList();
-});
+    // Limpiar ventana
+    const messagesBox = ensureMessagesBox();
+    messagesBox.innerHTML = '';
 
-// ===============================
-// 5️⃣ Mostrar lista de clientes
-// ===============================
-function renderClientList() {
-    chatList.innerHTML = "";
-    Object.entries(clients).forEach(([id, client]) => {
-        const btn = document.createElement("button");
-        btn.textContent = `${client.name}\nID: ${id}`;
-        btn.classList.add("client-btn");
-        btn.addEventListener("click", () => selectClient(id));
-        chatList.appendChild(btn);
-    });
+    // Solicitar historial
+    socket.emit('admin_select_chat', { user_id: userId });
 }
 
-// ===============================
-// 6️⃣ Seleccionar cliente y cargar chat
-// ===============================
-function selectClient(clientId) {
-    selectedClientId = clientId;
-    const client = clients[clientId];
-    document.getElementById("chat-header").textContent = `Chat con ${client.name} (${clientId})`;
-    renderChat(client.messages);
-}
+// -----------------------------
+// RECIBIR HISTORIAL DEL CHAT
+// -----------------------------
+socket.on('chat_history', (messages) => {
+    if (!currentUserId) return;
+    chats[currentUserId] = messages || [];
 
-// ===============================
-// 7️⃣ Envío de mensajes del admin
-// ===============================
-function sendMessage() {
+    const messagesBox = ensureMessagesBox();
+    messagesBox.innerHTML = '';
+
+    messages.forEach(msg => renderMessage(msg, messagesBox));
+
+    scrollToBottom(messagesBox);
+});
+
+// -----------------------------
+// NUEVOS MENSAJES EN TIEMPO REAL
+// -----------------------------
+socket.on('message_admin', (data) => {
+    const { user_id, message } = data;
+    if (!chats[user_id]) chats[user_id] = [];
+    chats[user_id].push(message);
+
+    // Si el chat actual es el seleccionado, mostrarlo
+    if (currentUserId === user_id) {
+        const messagesBox = ensureMessagesBox();
+        renderMessage(message, messagesBox);
+        scrollToBottom(messagesBox);
+    }
+
+    // Resaltar si hay mensaje nuevo en otro chat
+    if (currentUserId !== user_id) {
+        const item = [...chatList.children].find(i => i.dataset.userId === user_id);
+        if (item) item.classList.add('new-message');
+    }
+});
+
+// -----------------------------
+// ENVIAR MENSAJE COMO ADMIN
+// -----------------------------
+function enviarMensaje() {
+    if (!currentUserId) {
+        alert('Selecciona un chat primero.');
+        return;
+    }
+
     const text = messageInput.value.trim();
-    if (!text || !selectedClientId) return;
+    if (text === '') return;
 
-    const timestamp = getCurrentTimestamp();
     const msg = {
-        sender: "Administrador",
-        text,
-        timestamp,
-        to: selectedClientId
+        user_id: currentUserId,
+        text: text,
+        timestamp: new Date().toISOString(),
     };
 
-    socket.emit("admin_message", msg);
-    addMessageToChat(msg);
-    clients[selectedClientId].messages.push(msg);
-    messageInput.value = "";
+    socket.emit('admin_message', msg);
+    messageInput.value = '';
+
+    const messagesBox = ensureMessagesBox();
+    renderMessage({ text, sender: 'Admin', timestamp: msg.timestamp }, messagesBox);
+    scrollToBottom(messagesBox);
 }
 
-// ===============================
-// 8️⃣ Recepción de mensajes de clientes
-// ===============================
-socket.on("client_message", (data) => {
-    const { client_id, text, timestamp, sender, from_menu } = data;
-    if (!clients[client_id]) {
-        clients[client_id] = { name: sender || "Invitado", messages: [] };
-    }
-
-    const formatted = {
-        sender: sender || "Invitado",
-        text: from_menu
-            ? `🧭 El cliente ${sender || "Invitado"} seleccionó: ${text}`
-            : text,
-        timestamp
-    };
-
-    clients[client_id].messages.push(formatted);
-
-    // Si el admin está viendo ese chat, lo muestra
-    if (selectedClientId === client_id) {
-        addMessageToChat(formatted);
-    }
-
-    renderClientList();
+sendButton.addEventListener('click', enviarMensaje);
+messageInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') enviarMensaje();
 });
 
-// ===============================
-// 9️⃣ Renderizar mensajes del chat
-// ===============================
-function renderChat(messages) {
-    chatBox.innerHTML = "";
-    messages.forEach((m) => addMessageToChat(m));
-    chatBox.scrollTop = chatBox.scrollHeight;
+// -----------------------------
+// UTILIDADES DE INTERFAZ
+// -----------------------------
+
+function ensureMessagesBox() {
+    let box = chatWindow.querySelector('.chat-box');
+    if (!box) {
+        box = document.createElement('div');
+        box.classList.add('chat-box');
+        chatWindow.insertBefore(box, chatWindow.querySelector('.chat-input'));
+    }
+    return box;
 }
 
-function addMessageToChat(data) {
-    const messageElement = document.createElement("div");
-    const isOwn = data.sender === "Administrador";
-    messageElement.classList.add(isOwn ? "own-message" : "other-message");
+function renderMessage(msg, container) {
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('message');
+    msgDiv.classList.add(msg.sender === 'Admin' ? 'sent' : 'received');
 
-    const time = formatTimestampToLocal(data.timestamp);
-    messageElement.textContent = `${data.sender}: ${data.text} (${time})`;
+    let content = '';
 
-    chatBox.appendChild(messageElement);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    if (msg.audio_url) {
+        content = `<audio controls src="${msg.audio_url}" class="audio-message"></audio>`;
+    } else if (msg.text) {
+        content = `<p>${msg.text}</p>`;
+    }
+
+    msgDiv.innerHTML = `
+        <div class="message-content">
+            <span class="sender">${msg.sender}</span>
+            ${content}
+            <span class="timestamp">${formatTime(msg.timestamp)}</span>
+        </div>
+    `;
+
+    container.appendChild(msgDiv);
+}
+
+function scrollToBottom(container) {
+    container.scrollTop = container.scrollHeight;
+}
+
+function formatTime(timestamp) {
+    try {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+        return '';
+    }
 }

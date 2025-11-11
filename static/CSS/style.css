@@ -169,8 +169,38 @@ body {
 
 .chat-container .chat-box,
 .chat-container .chat-input {
-    flex-grow: 1;
+    /* flex-grow: 1; */ 
     padding: 10px;
+}
+
+.chat-container .chat-input{
+    flex-grow: 0;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chat-container .chat-input input{
+    flex: 1;
+}
+
+.chat-container .chat-input #btn-enviar { /* Para boton enviar */
+    flex: 0 0 auto;
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+}
+
+.chat-container .chat-input #btn-menu { /* Para boton menu */
+    flex: 0 0 auto; 
+    background: var(--secondary);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
 }
 
 /* ========================================

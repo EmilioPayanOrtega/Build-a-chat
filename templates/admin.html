@@ -8,31 +8,41 @@
 </head>
 <body>
     <div class="admin-container">
-        <!-- Barra lateral con lista de clientes -->
-        <div class="chat-sidebar">
-            <h3>Clientes Conectados</h3>
-            <div id="chat-list" class="chat-list"></div>
-        </div>
+        <!-- Sidebar de clientes -->
+        <aside class="chat-sidebar">
+            <div class="sidebar-header">
+                <h2>Clientes Conectados</h2>
+            </div>
+            <div id="chat-list" class="chat-list">
+                <p class="empty-list">Cargando clientes...</p>
+            </div>
+        </aside>
 
-        <!-- Ventana de chat -->
-        <div class="chat-window">
-            <div class="chat-header">
-                Chat con <strong><span id="selected-user">...</span></strong>
-                <small>(<span id="selected-id">...</span>)</small>
+        <!-- Ventana principal del chat -->
+        <main class="chat-window">
+            <header class="chat-header">
+                <div class="chat-header-info">
+                    <h3 id="selected-user" class="chat-user-name">Selecciona un cliente</h3>
+                    <small id="selected-id" class="chat-user-id"></small>
+                </div>
+            </header>
+
+            <!-- Área de mensajes -->
+            <div class="chat-box" id="chat-box">
+                <div class="placeholder-text">
+                    <p>Selecciona un cliente a la izquierda para ver su conversación.</p>
+                </div>
             </div>
 
-            <!-- Caja de mensajes -->
-            <div class="chat-box" id="chat-box"></div>
-
             <!-- Entrada de texto -->
-            <div class="chat-input">
+            <div class="chat-input admin-input">
                 <input type="text" id="admin-message" placeholder="Escribe un mensaje...">
                 <button id="send-admin">Enviar</button>
             </div>
-        </div>
+        </main>
     </div>
 
-    <!-- Socket.IO -->
+    <!-- Scripts -->
     <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='JS/admin.js') }}"></script>
 </body>

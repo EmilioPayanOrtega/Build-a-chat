@@ -37,8 +37,13 @@ function formatTimestampToLocal(iso) {
 const chatBox = document.getElementById("chat-box");
 const messageInput = document.getElementById("message");
 const sendButton = document.getElementById("send");
+const menuButton = document.getElementById("menu-btn");
 
 sendButton.addEventListener("click", sendMessage);
+menuButton.addEventListener("click", () => {
+    socket.emit("show_menu_request"); // botón "Menú"
+});
+
 messageInput.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendMessage();
 });
@@ -49,6 +54,12 @@ function sendMessage() {
     if (!message) return;
     const timestamp = getCurrentTimestamp();
     socket.emit("message", { text: message, timestamp });
+
+    // Si el cliente escribe "menu" o "menú", abre el menú automáticamente
+    if (["menu", "menú"].includes(message.toLowerCase())) {
+        socket.emit("show_menu_request");
+    }
+
     messageInput.value = "";
 }
 

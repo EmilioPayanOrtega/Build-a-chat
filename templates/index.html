@@ -13,16 +13,17 @@
             <span id="user-id" style="display: none;"></span>
         </div>
 
-        <!-- Flujo de navegación (opcional) -->
+        <!-- Flujo de navegación -->
         <div id="navigation-flow" class="navigation-flow"></div>
 
         <!-- Caja de mensajes -->
         <div class="chat-box" id="chat-box"></div>
 
-        <!-- Entrada de texto -->
+        <!-- Entrada de texto y botón de menú -->
         <div class="chat-input">
             <input type="text" id="message" placeholder="Escribe tu mensaje...">
             <button id="send">Enviar</button>
+            <button id="menu-btn" class="menu-btn">Menú</button>
         </div>
     </div>
 
@@ -31,3 +32,4 @@
     <script src="{{ url_for('static', filename='JS/client.js') }}"></script>
 </body>
 </html>
+

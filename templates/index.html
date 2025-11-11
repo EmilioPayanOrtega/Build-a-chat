@@ -1,33 +1,30 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Cliente</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='CSS/style.css') }}">
+    <meta charset="UTF-8" />
+    <title>Build a Chat</title>
+    <link rel="stylesheet" href="/static/CSS/style.css">
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-header">
-            Chat Cliente - <strong><span id="user-name">...</span></strong>
-            <span id="user-id" style="display: none;"></span>
+    <div id="chat-container">
+        <div id="header">
+            <h2>Build a Chat</h2>
+            <span id="user-name"></span>
         </div>
 
-        <!-- Flujo de navegación (opcional) -->
-        <div id="navigation-flow" class="navigation-flow"></div>
+        <div id="chat-box"></div>
 
-        <!-- Caja de mensajes -->
-        <div class="chat-box" id="chat-box"></div>
+        <div id="menu-button-container">
+            <button id="menu-button">📋 Menú</button>
+        </div>
 
-        <!-- Entrada de texto -->
-        <div class="chat-input">
-            <input type="text" id="message" placeholder="Escribe tu mensaje...">
+        <div id="input-container">
+            <input id="message" type="text" placeholder="Escribe un mensaje...">
             <button id="send">Enviar</button>
         </div>
     </div>
 
-    <!-- Socket.IO y lógica del cliente -->
-    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
-    <script src="{{ url_for('static', filename='JS/client.js') }}"></script>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="/static/JS/inicio.js"></script>
 </body>
 </html>

@@ -11,14 +11,20 @@
         <!-- Barra lateral con lista de clientes -->
         <div class="chat-sidebar">
             <h3>Clientes Conectados</h3>
-            <div class="chat-list" id="chat-list"></div>
+            <div id="chat-list" class="chat-list"></div>
         </div>
 
         <!-- Ventana de chat -->
         <div class="chat-window">
             <div class="chat-header">
-                Chat con <span id="selected-user">...</span> (<span id="selected-id">...</span>)
+                Chat con <strong><span id="selected-user">...</span></strong>
+                <small>(<span id="selected-id">...</span>)</small>
             </div>
+
+            <!-- Caja de mensajes -->
+            <div class="chat-box" id="chat-box"></div>
+
+            <!-- Entrada de texto -->
             <div class="chat-input">
                 <input type="text" id="admin-message" placeholder="Escribe un mensaje...">
                 <button id="send-admin">Enviar</button>
@@ -26,7 +32,7 @@
         </div>
     </div>
 
-    <!-- Socket.IO y lógica del administrador -->
+    <!-- Socket.IO -->
     <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
     <script src="{{ url_for('static', filename='JS/admin.js') }}"></script>
 </body>

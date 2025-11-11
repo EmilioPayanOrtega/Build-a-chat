@@ -1,231 +1,234 @@
-from flask import Flask, render_template, send_from_directory
-from flask_socketio import SocketIO, emit, join_room, leave_room
-import os
-from datetime import datetime
+from gevent import monkey
+monkey.patch_all()
+
+from flask import Flask, render_template, request
+from flask_socketio import SocketIO, emit, join_room
+from menu_config import menu_config
+from datetime import datetime, timezone
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+app.config['SECRET_KEY'] = 'secret!'
+socketio = SocketIO(app, async_mode='gevent', manage_session=False)
 
-# ==============================
-# Diccionarios de usuarios
-# ==============================
-clients = {}        # { sid: {"name": "Invitado", "room": "user_x"} }
-admins = {}         # { sid: {"name": "Admin"} }
+# Diccionarios de sesión
+chats = {}
+clientes_conectados = {}
+admins_conectados = set()  # <-- NUEVO: para identificar paneles admin conectados
 
-# ==============================
-# Rutas principales
-# ==============================
+
+def current_timestamp():
+    """Devuelve timestamp ISO 8601 en UTC"""
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
 @app.route('/')
-def index():
+def client_page():
     return render_template('index.html')
 
+
 @app.route('/admin')
-def admin():
+def admin_page():
     return render_template('admin.html')
 
-@app.route('/audio/<path:filename>')
-def serve_audio(filename):
-    return send_from_directory('static/audio', filename)
 
-@app.route('/images/<path:filename>')
-def serve_image(filename):
-    return send_from_directory('static/images', filename)
+# -----------------------------
+# CLIENTE
+# -----------------------------
 
-# ==============================
-# Funciones de utilidad
-# ==============================
-def current_time():
-    return datetime.now().isoformat()
-
-def broadcast_clients():
-    """Envia al admin la lista actualizada de clientes conectados"""
-    client_data = {sid: {"name": info["name"]} for sid, info in clients.items()}
-    socketio.emit("connected_clients", {"clients": client_data}, to=list(admins.keys()))
-
-# ==============================
-# Eventos de conexión
-# ==============================
-@socketio.on("connect")
+@socketio.on('connect')
 def handle_connect():
-    print(f"🔌 Nueva conexión: {request.sid}")
+    emit('connected', {'user_id': request.sid})
 
-@socketio.on("disconnect")
+
+@socketio.on('disconnect')
 def handle_disconnect():
-    sid = request.sid
-    if sid in clients:
-        name = clients[sid]["name"]
-        print(f"❌ Cliente desconectado: {name}")
-        del clients[sid]
-        socketio.emit("client_disconnected", sid, to=list(admins.keys()))
-    elif sid in admins:
-        print(f"🧹 Admin desconectado: {admins[sid]['name']}")
-        del admins[sid]
-    broadcast_clients()
+    user_id = request.sid
+    clientes_conectados.pop(user_id, None)
+    chats.pop(user_id, None)
+    admins_conectados.discard(user_id)
 
-# ==============================
-# Registro de clientes
-# ==============================
-@socketio.on("register_name")
+    # Notificar actualización a todos los administradores
+    emit('update_chat_list', [
+        {'user_id': uid, 'name': info['name']}
+        for uid, info in clientes_conectados.items()
+    ], broadcast=True)
+
+
+@socketio.on('join')
+def handle_join():
+    """Un cliente entra a su sala personal"""
+    user_id = request.sid
+    join_room(user_id)
+    if user_id not in chats:
+        chats[user_id] = []
+    emit('chat_history', chats[user_id], room=user_id)
+
+
+@socketio.on('register_name')
 def handle_register_name(data):
-    name = data.get("name", "Invitado")
-    sid = request.sid
-    clients[sid] = {"name": name, "room": sid}
-    join_room(sid)
-    emit("connected", {"user_id": sid})
-    print(f"👤 Cliente registrado: {name} ({sid})")
+    """Cuando un cliente ingresa su nombre"""
+    name = data.get('name', 'Invitado')
+    user_id = request.sid
+    clientes_conectados[user_id] = {'name': name}
 
-    # Avisar a los admins
-    socketio.emit("new_client", {"id": sid, "name": name}, to=list(admins.keys()))
-    broadcast_clients()
-
-# ==============================
-# Registro de administrador
-# ==============================
-@socketio.on("register_admin")
-def handle_register_admin(data):
-    name = data.get("name", "Administrador")
-    sid = request.sid
-    admins[sid] = {"name": name}
-    print(f"🛡️ Admin conectado: {name} ({sid})")
-    broadcast_clients()
-
-# ==============================
-# Cliente envía mensaje
-# ==============================
-@socketio.on("message")
-def handle_message(data):
-    sid = request.sid
-    if sid not in clients:
-        return
-
-    text = data.get("text", "")
-    timestamp = data.get("timestamp", current_time())
-    sender_name = clients[sid]["name"]
-
-    msg = {
-        "client_id": sid,
-        "sender": sender_name,
-        "text": text,
-        "timestamp": timestamp,
-        "from_menu": False
+    # Mensajes de bienvenida
+    bienvenida = {
+        'text': f'Hola {name}, bienvenido a Build a Chat. '
+                f'Para empezar, escriba "Menu" para abrir el menú interactivo 🚀',
+        'timestamp': current_timestamp(),
+        'sender': 'Tecbot'
     }
 
-    print(f"💬 Mensaje de {sender_name}: {text}")
-
-    # Enviar al cliente (su propio chat)
-    emit("message", {"sender": sender_name, "text": text, "timestamp": timestamp}, room=sid)
-
-    # Enviar a los administradores
-    socketio.emit("client_message", msg, to=list(admins.keys()))
-
-# ==============================
-# Admin envía mensaje
-# ==============================
-@socketio.on("admin_message")
-def handle_admin_message(data):
-    target = data.get("to")
-    text = data.get("text", "")
-    timestamp = data.get("timestamp", current_time())
-
-    if not target or target not in clients:
-        print(f"⚠️ Admin intentó enviar mensaje a cliente no válido ({target})")
-        return
-
-    msg = {
-        "sender": "Administrador",
-        "text": text,
-        "timestamp": timestamp
+    audio_bienvenida = {
+        'audio_url': '/static/audio/bienvenida.mp3',
+        'text': '',
+        'timestamp': current_timestamp(),
+        'sender': 'Tecbot'
     }
 
-    print(f"📤 Admin → {clients[target]['name']}: {text}")
+    chats.setdefault(user_id, []).extend([bienvenida, audio_bienvenida])
 
     # Enviar al cliente
-    emit("message", msg, room=target)
+    emit('message', bienvenida, room=user_id)
+    emit('message', audio_bienvenida, room=user_id)
 
-# ==============================
-# Menús interactivos del cliente
-# ==============================
-@socketio.on("menu_option_selected")
-def handle_menu_option_selected(data):
-    sid = request.sid
-    option_id = data.get("id")
+    # Enviar al admin (broadcast)
+    emit('message_admin', {'user_id': user_id, 'message': bienvenida}, broadcast=True)
+    emit('message_admin', {'user_id': user_id, 'message': audio_bienvenida}, broadcast=True)
 
-    menus = {
-        "menu_ambar": ["Información General", "Instalaciones", "Misión y Visión"],
-        "menu_asp": ["Requisitos", "Proceso de Inscripción"],
-        "menu_ofe": ["Carreras", "Certificaciones", "Talleres"],
-        "menu_est": ["Calendario Escolar", "Biblioteca", "Actividades"],
-        "menu_map": []
+    # Actualizar lista de clientes en tiempo real
+    emit('update_chat_list', [
+        {'user_id': uid, 'name': info['name']}
+        for uid, info in clientes_conectados.items()
+    ], broadcast=True)
+
+
+@socketio.on('message')
+def handle_message(data):
+    """Mensaje enviado por el cliente"""
+    user_id = request.sid
+    name = clientes_conectados.get(user_id, {}).get('name', 'Invitado')
+    timestamp = data.get("timestamp") or current_timestamp()
+
+    msg = {
+        'text': data['text'],
+        'timestamp': timestamp,
+        'sender': name
     }
 
-    submenu = menus.get(option_id, [])
+    chats.setdefault(user_id, []).append(msg)
 
-    # Si es el mapa, mostrar imagen
-    if option_id == "menu_map":
-        emit("show_map", {"image": "/images/mapa.png"})
-        # Avisar a admin
-        socketio.emit("client_message", {
-            "client_id": sid,
-            "sender": clients[sid]["name"],
-            "text": "Mapa",
-            "timestamp": current_time(),
-            "from_menu": True
-        }, to=list(admins.keys()))
+    emit('message', msg, room=user_id)
+    emit('message_admin', {'user_id': user_id, 'message': msg}, broadcast=True)
+
+    # Si el usuario escribe "menu"
+    if data['text'].strip().lower() == "menu":
+        emit('show_menu', room=user_id)
+
+
+# -----------------------------
+# MENÚ INTERACTIVO
+# -----------------------------
+
+@socketio.on('menu_option_selected')
+def handle_menu_option(data):
+    user_id = request.sid
+    option_id = data.get('id')
+    option = menu_config.get(option_id)
+    if not option:
         return
 
-    if submenu:
-        emit("show_submenu", {"submenu": [{"label": s, "id": s.lower()} for s in submenu]})
-    else:
-        emit("show_info", {"label": "Menú", "text": "Sin información disponible."})
+    if option["type"] == "link":
+        emit('show_link', {'label': option["label"], 'link': option["link"]}, room=user_id)
+    elif option["type"] == "submenu":
+        emit('show_submenu', {
+            'submenu': [{"id": item["id"], "label": item["label"]} for item in option["submenu"]]
+        }, room=user_id)
+    elif option["type"] == "info":
+        emit('show_info', {'label': option["label"], 'text': option["text"]}, room=user_id)
+    elif option["type"] == "image":
+        emit('show_map', {'image': option["image"], 'label': option.get("label", "Imagen")}, room=user_id)
 
-    # Avisar al admin
-    socketio.emit("client_message", {
-        "client_id": sid,
-        "sender": clients[sid]["name"],
-        "text": option_id,
-        "timestamp": current_time(),
-        "from_menu": True
-    }, to=list(admins.keys()))
 
-# ==============================
-# Submenús seleccionados
-# ==============================
-@socketio.on("submenu_option_selected")
-def handle_submenu_option_selected(data):
-    sid = request.sid
-    option_id = data.get("id", "")
-    label = option_id.replace("_", " ").title()
+@socketio.on('submenu_option_selected')
+def handle_submenu_option(data):
+    user_id = request.sid
+    option_id = data.get('id')
 
-    emit("show_info", {
-        "label": label,
-        "text": f"Información sobre {label}."
-    })
+    def find_option(menu, target):
+        if isinstance(menu, dict):
+            if menu.get("id") == target:
+                return menu
+            for v in menu.values():
+                found = find_option(v, target)
+                if found:
+                    return found
+        elif isinstance(menu, list):
+            for item in menu:
+                found = find_option(item, target)
+                if found:
+                    return found
+        return None
 
-    socketio.emit("client_message", {
-        "client_id": sid,
-        "sender": clients[sid]["name"],
-        "text": label,
-        "timestamp": current_time(),
-        "from_menu": True
-    }, to=list(admins.keys()))
+    option = find_option(menu_config, option_id)
+    if not option:
+        return
 
-# ==============================
-# Retorno al menú principal
-# ==============================
-@socketio.on("return_to_main_menu")
+    if option["type"] == "link":
+        emit('show_link', {'label': option["label"], 'link': option["link"]}, room=user_id)
+    elif option["type"] == "info":
+        emit('show_info', {'label': option["label"], 'text': option["text"]}, room=user_id)
+    elif option["type"] == "submenu":
+        emit('show_submenu', {
+            'submenu': [{"id": item["id"], "label": item["label"]} for item in option["submenu"]]
+        }, room=user_id)
+
+
+# -----------------------------
+# ADMIN
+# -----------------------------
+
+@socketio.on('admin_join')
+def handle_admin_join():
+    """Cuando un administrador entra"""
+    user_id = request.sid
+    admins_conectados.add(user_id)
+    emit('update_chat_list', [
+        {'user_id': uid, 'name': info['name']}
+        for uid, info in clientes_conectados.items()
+    ], room=user_id)
+
+
+@socketio.on('admin_select_chat')
+def admin_select_chat(data):
+    """Seleccionar un chat en el panel"""
+    user_id = data['user_id']
+    join_room(user_id)
+    emit('chat_history', chats.get(user_id, []), room=request.sid)
+
+
+@socketio.on('admin_message')
+def handle_admin_message(data):
+    """Enviar mensaje del admin al cliente"""
+    user_id = data['user_id']
+    timestamp = data.get("timestamp") or current_timestamp()
+
+    msg = {
+        'text': data['text'],
+        'timestamp': timestamp,
+        'sender': 'Admin'
+    }
+
+    chats.setdefault(user_id, []).append(msg)
+    emit('message', msg, room=user_id)
+    emit('message_admin', {'user_id': user_id, 'message': msg}, broadcast=True)
+
+
+@socketio.on('return_to_main_menu')
 def handle_return_to_main_menu():
-    sid = request.sid
-    emit("show_menu")
-    socketio.emit("client_message", {
-        "client_id": sid,
-        "sender": clients[sid]["name"],
-        "text": "Regresó al menú principal",
-        "timestamp": current_time(),
-        "from_menu": True
-    }, to=list(admins.keys()))
+    user_id = request.sid
+    emit('show_menu', room=user_id)
 
-# ==============================
-# Ejecución del servidor
-# ==============================
-if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000, debug=True)
+
+if __name__ == '__main__':
+    socketio.run(app, debug=True)

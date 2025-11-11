@@ -2,24 +2,38 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Admin - Build a Chat</title>
-    <link rel="stylesheet" href="/static/CSS/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel de Administrador</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='CSS/style.css') }}">
 </head>
 <body>
-    <div id="admin-container">
-        <div id="sidebar">
+    <div class="admin-container">
+        <!-- Barra lateral con lista de clientes -->
+        <div class="chat-sidebar">
             <h3>Clientes Conectados</h3>
-            <ul id="client-list"></ul>
+            <div id="chat-list" class="chat-list"></div>
         </div>
-        <div id="chat-section">
-            <div id="admin-chat-box"></div>
-            <div id="admin-input-container">
-                <input id="admin-message" type="text" placeholder="Escribe un mensaje...">
-                <button id="admin-send">Enviar</button>
+
+        <!-- Ventana de chat -->
+        <div class="chat-window">
+            <div class="chat-header">
+                Chat con <strong><span id="selected-user">...</span></strong>
+                <small>(<span id="selected-id">...</span>)</small>
+            </div>
+
+            <!-- Caja de mensajes -->
+            <div class="chat-box" id="chat-box"></div>
+
+            <!-- Entrada de texto -->
+            <div class="chat-input">
+                <input type="text" id="admin-message" placeholder="Escribe un mensaje...">
+                <button id="send-admin">Enviar</button>
             </div>
         </div>
     </div>
-    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    <script src="/static/JS/admin.js"></script>
+
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='JS/admin.js') }}"></script>
 </body>
 </html>

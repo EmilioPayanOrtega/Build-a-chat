@@ -226,6 +226,11 @@ def handle_return_to_main_menu():
     """Regresa al menú principal."""
     emit('show_menu', room=request.sid)
 
+# Bloque de Testeo para arreglar el menú 
+@socketio.on("show_menu_request")
+def handle_show_menu_request():
+   # Envia al cliente el evento para desplegar el menú principal
+    emit("show_menu")
 
 # ==========================
 #       RUN SERVER

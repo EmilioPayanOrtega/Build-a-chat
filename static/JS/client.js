@@ -157,20 +157,30 @@ socket.on("show_submenu", (data) => {
         timestamp: getCurrentTimestamp()
     });
 
-    const submenuDiv = document.createElement("div");
-    submenuDiv.classList.add("menu-container");
+    const menuDiv = document.createElement("div");
+    menuDiv.classList.add("menu-container");
 
-    data.submenu.forEach(item => {
-        const btn = document.createElement("button");
-        btn.classList.add("menu-btn");
-        btn.textContent = `🔹 ${item.label}`;
-        btn.addEventListener("click", () => {
+    if (data?.menu) {
+        data.submenu.forEach(item => {
+            const btn = document.createElement("button");
+            btn.classList.add("menu-btn");
+            btn.dataset.id = item.id;
+            btn.textContent = `🔹 ${item.label}`;
+            btn.addEventListener("click", () => {
             socket.emit("submenu_option_selected", { id: item.id });
         });
-        submenuDiv.appendChild(btn);
-    });
+            menuDiv.appendChild(btn);
+        });
+    } else {
+        /* Si no hay datos, muestra el menú por default */
+        menuDiv.innerHTML = `
+            <button class="menu-btn" data-id="option1">🔹 Opción 1</button>
+            <button class="menu-btn" data-id="option2">🔹 Opción 2</button>
+            <button class="menu-btn" data-id="option3">🔹 Opción 3</button>
+        `;
+    }
 
-    chatBox.appendChild(submenuDiv);
+    chatBox.appendChild(menuDiv);
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 

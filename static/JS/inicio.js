@@ -16,45 +16,38 @@ socket.on("connected", (data) => {
     socket.emit("join");
 });
 
+// DOM
 const chatBox = document.getElementById("chat-box");
 const messageInput = document.getElementById("message");
 const sendButton = document.getElementById("send");
+const menuButton = document.getElementById("menu-btn"); // debe existir en index.html
 
+// listeners
 sendButton.addEventListener("click", sendMessage);
 messageInput.addEventListener("keypress", (event) => {
     if (event.key === "Enter") sendMessage();
 });
+if (menuButton) {
+    menuButton.addEventListener("click", () => {
+        // Enviamos un "menu" como mensaje para que el servidor lo registre y emita show_menu
+        socket.emit("message", { text: "menu", timestamp: getCurrentTimestamp() });
+    });
+}
 
+// utilidades
 function getCurrentTimestamp() {
     return new Date().toISOString();
 }
-
-// ✅ Nuevo formateador de hora
-function formatTimestamp(timestamp) {
+function formatTimestamp(iso) {
     try {
-        const d = new Date(timestamp);
-        if (isNaN(d)) return timestamp;
+        const d = new Date(iso);
+        if (isNaN(d)) return iso || "";
         return d.toLocaleString("es-MX", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit"
+            year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit", second: "2-digit"
         });
     } catch {
-        return timestamp;
-    }
-}
-
-function sendMessage() {
-    const message = messageInput.value.trim();
-    if (message !== "") {
-        socket.emit("message", {
-            text: message,
-            timestamp: getCurrentTimestamp()
-        });
-        messageInput.value = "";
+        return iso || "";
     }
 }
 
@@ -62,40 +55,76 @@ function clearMenus() {
     document.querySelectorAll(".menu-container, .submenu-container, .info-container, .image-container").forEach(el => el.remove());
 }
 
+// crea botón estándar (configurable)
 function createButton(label, id, className, emitEvent) {
     const btn = document.createElement("button");
     btn.textContent = label;
-    btn.classList.add(className);
-    btn.onclick = () => {
+    btn.className = className;
+    btn.dataset.id = id;
+    btn.addEventListener("click", () => {
         clearMenus();
+        // Para consistencia usamos los eventos que el servidor espera
         socket.emit(emitEvent, { id });
-    };
+    });
     return btn;
 }
 
-function addReturnButton() {
+function addReturnButton(container) {
     const returnBtn = document.createElement("button");
     returnBtn.textContent = "Regresar al menú principal";
-    returnBtn.classList.add("submenu-button");
-    returnBtn.onclick = () => {
+    returnBtn.className = "submenu-button";
+    returnBtn.addEventListener("click", () => {
+        // pedir al servidor que muestre el menú principal
         socket.emit("return_to_main_menu");
-    };
-
-    const container = document.querySelector(".submenu-container");
+    });
     if (container) container.appendChild(returnBtn);
 }
 
-socket.on("show_menu", () => {
+// === Recepción de mensajes generales ===
+socket.on("message", (data) => {
+    // Si no tiene timestamp lo completamos
+    if (!data.timestamp) data.timestamp = getCurrentTimestamp();
+
+    // Mensaje con audio
+    if (data.audio_url) {
+        const audioWrapper = document.createElement("div");
+        audioWrapper.classList.add("audio-wrapper", data.sender === userName ? "own-message" : "other-message");
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.classList.add("audio-button");
+        btn.innerText = "▶";
+        btn.addEventListener("click", () => {
+            const audio = new Audio(data.audio_url);
+            audio.play();
+        });
+
+        const ts = document.createElement("div");
+        ts.classList.add("audio-ts");
+        ts.innerText = formatTimestamp(data.timestamp);
+
+        audioWrapper.appendChild(btn);
+        audioWrapper.appendChild(ts);
+        chatBox.appendChild(audioWrapper);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return;
+    }
+
+    // Mensaje de texto normal
+    const messageElement = document.createElement("div");
+    messageElement.classList.add(data.sender === userName ? "own-message" : "other-message");
+    const time = formatTimestamp(data.timestamp);
+    messageElement.textContent = `${data.sender}: ${data.text} ${time ? `(${time})` : ""}`;
+    chatBox.appendChild(messageElement);
+    chatBox.scrollTop = chatBox.scrollHeight;
+});
+
+// === Menú dinámico enviado por servidor ===
+// show_menu -> payload: { menu: [ {id,label,type}, ... ] }
+socket.on("show_menu", (data) => {
     clearMenus();
 
-    const menuOptions = [
-        { id: "menu_ambar", label: "Ambar" },
-        { id: "menu_asp", label: "Aspirantes" },
-        { id: "menu_ofe", label: "Oferta Educativa" },
-        { id: "menu_est", label: "Estudiantes" },
-        { id: "menu_map", label: "Mapa" }
-    ];
-
+    const menu = Array.isArray(data?.menu) ? data.menu : [];
     const container = document.createElement("div");
     container.classList.add("menu-container");
 
@@ -104,31 +133,52 @@ socket.on("show_menu", () => {
     title.textContent = "Menú Principal";
     container.appendChild(title);
 
-    menuOptions.forEach(opt => {
-        const btn = createButton(opt.label, opt.id, "menu-button", "menu_option_selected");
-        container.appendChild(btn);
-    });
+    if (menu.length === 0) {
+        const p = document.createElement("p");
+        p.textContent = "No hay opciones disponibles.";
+        container.appendChild(p);
+    } else {
+        menu.forEach(item => {
+            // item tiene { id, label, type }
+            const btn = createButton(item.label, item.id, "menu-button", "menu_option_selected");
+            container.appendChild(btn);
+        });
+    }
 
     chatBox.appendChild(container);
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
+// show_submenu -> payload: { submenu: [ {id,label,type}, ... ], parent_label?: string }
 socket.on("show_submenu", (data) => {
     clearMenus();
 
+    const submenu = Array.isArray(data?.submenu) ? data.submenu : [];
     const container = document.createElement("div");
     container.classList.add("submenu-container");
 
-    data.submenu.forEach(item => {
-        const btn = createButton(item.label, item.id, "submenu-button", "submenu_option_selected");
-        container.appendChild(btn);
-    });
+    const title = document.createElement("div");
+    title.classList.add("menu-message");
+    title.textContent = data?.parent_label ? `Submenú: ${data.parent_label}` : "Submenú";
+    container.appendChild(title);
 
+    if (submenu.length === 0) {
+        const p = document.createElement("p");
+        p.textContent = "No hay opciones en este submenú.";
+        container.appendChild(p);
+    } else {
+        submenu.forEach(item => {
+            const btn = createButton(item.label, item.id, "submenu-button", "submenu_option_selected");
+            container.appendChild(btn);
+        });
+    }
+
+    addReturnButton(container);
     chatBox.appendChild(container);
-    addReturnButton();
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
+// show_link -> payload: { label, link }
 socket.on("show_link", (data) => {
     clearMenus();
 
@@ -138,15 +188,23 @@ socket.on("show_link", (data) => {
     const link = document.createElement("a");
     link.href = data.link;
     link.target = "_blank";
-    link.textContent = data.label;
+    link.rel = "noopener noreferrer";
     link.classList.add("submenu-button");
+    link.textContent = data.label || data.link || "Abrir enlace";
+
+    // También añadimos un pequeño comportamiento para abrir en nueva pestaña (por si el estilo requiere botón)
+    link.addEventListener("click", (e) => {
+        // default ya abre en _blank; esto evita navegación en el mismo frame si el CSS cambia
+        window.open(data.link, "_blank", "noopener");
+    });
 
     container.appendChild(link);
+    addReturnButton(container);
     chatBox.appendChild(container);
-    addReturnButton();
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
+// show_info -> payload: { label, text }
 socket.on("show_info", (data) => {
     clearMenus();
 
@@ -154,63 +212,37 @@ socket.on("show_info", (data) => {
     container.classList.add("info-container", "other-message");
 
     const title = document.createElement("strong");
-    title.textContent = data.label;
+    title.textContent = data.label || "Información";
     container.appendChild(title);
 
-    const text = document.createElement("p");
-    text.textContent = data.text;
-    container.appendChild(text);
+    const p = document.createElement("p");
+    p.textContent = data.text || "";
+    container.appendChild(p);
 
+    addReturnButton(container);
     chatBox.appendChild(container);
-    addReturnButton();
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
+// show_map -> payload: { image, label }
 socket.on("show_map", (data) => {
     clearMenus();
 
     const container = document.createElement("div");
     container.classList.add("image-container", "other-message");
 
+    const title = document.createElement("div");
+    title.classList.add("menu-message");
+    if (data.label) title.textContent = data.label;
+    if (data.label) container.appendChild(title);
+
     const img = document.createElement("img");
     img.src = data.image;
-    img.alt = "Mapa de instalaciones";
+    img.alt = data.label || "Imagen";
+    img.classList.add("menu-image");
     container.appendChild(img);
 
+    addReturnButton(container);
     chatBox.appendChild(container);
-    addReturnButton();
-    chatBox.scrollTop = chatBox.scrollHeight;
-});
-
-// ✅ Mensajes con texto o audio (corregido)
-socket.on("message", (data) => {
-    const messageElement = document.createElement("div");
-
-    if (data.audio_url) {
-        // nuevo estilo del botón de audio
-        const audioWrapper = document.createElement("div");
-        audioWrapper.classList.add("audio-wrapper", "other-message");
-
-        const button = document.createElement("button");
-        button.innerHTML = "▶";
-        button.classList.add("audio-button");
-        button.addEventListener("click", () => {
-            const audio = new Audio(data.audio_url);
-            audio.play();
-        });
-
-        const time = document.createElement("div");
-        time.classList.add("audio-timestamp");
-        time.textContent = formatTimestamp(data.timestamp);
-
-        audioWrapper.appendChild(button);
-        audioWrapper.appendChild(time);
-        chatBox.appendChild(audioWrapper);
-    } else {
-        messageElement.classList.add(data.sender === userName ? "own-message" : "other-message");
-        messageElement.textContent = `${data.sender}: ${data.text} (${formatTimestamp(data.timestamp)})`;
-        chatBox.appendChild(messageElement);
-    }
-
     chatBox.scrollTop = chatBox.scrollHeight;
 });

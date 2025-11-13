@@ -131,7 +131,7 @@ def handle_message(data):
     emit('message_admin', {'user_id': user_id, 'message': msg}, broadcast=True)
 
     # Si el usuario escribe "menu"
-    if text.lower() == "menu":
+    if text == "menu": #Devolver a text.lower() - solo testeo
         emit('show_menu', room=user_id)
 
 
@@ -167,18 +167,18 @@ def handle_submenu_option(data):
     user_id = request.sid
     option_id = data.get('id')
 
-    def find_option(menu, target):
+    def find_option(menu, target_id):
         """Busca recursivamente una opción dentro del menú."""
         if isinstance(menu, dict):
-            if menu.get("id") == target:
+            if menu.get("id") == target_id:
                 return menu
             for v in menu.values():
-                found = find_option(v, target)
+                found = find_option(v, target_id)
                 if found:
                     return found
         elif isinstance(menu, list):
             for item in menu:
-                found = find_option(item, target)
+                found = find_option(item, target_id)
                 if found:
                     return found
         return None
@@ -227,18 +227,18 @@ def handle_return_to_main_menu():
     emit('show_menu', room=request.sid)
 
 # Bloque de Testeo para arreglar el menú 
-@socketio.on("show_menu_request")
-def handle_show_menu_request():
+#@socketio.on("show_menu_request")
+#def handle_show_menu_request():
    # Envia al cliente el evento para desplegar el menú principal
-    emit("show_menu", {
-        "menu": [
-            {"id": "menu_ambar", "label": "Ambar"},
-            {"id": "menu_asp", "label": "Aspirantes"},
-            {"id": "menu_ofe", "label": "Oferta Educativa"},
-            {"id": "menu_est", "label": "Estudiantes"},
-            {"id": "menu_mapa", "label": "Mapa de instlaaciones"},
-        ]
-    })
+#    emit("show_menu", {
+#        "menu": [
+#            {"id": "menu_ambar", "label": "Ambar"},
+#            {"id": "menu_asp", "label": "Aspirantes"},
+#            {"id": "menu_ofe", "label": "Oferta Educativa"},
+#            {"id": "menu_est", "label": "Estudiantes"},
+#            {"id": "menu_mapa", "label": "Mapa de instlaaciones"},
+#        ]
+#    })
 
 # ==========================
 #       RUN SERVER

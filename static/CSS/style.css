@@ -169,7 +169,6 @@ body {
 
 .chat-container .chat-box,
 .chat-container .chat-input {
-    /* flex-grow: 1; */ 
     padding: 10px;
 }
 
@@ -185,20 +184,18 @@ body {
     flex: 1;
 }
 
-.chat-container .chat-input #btn-enviar { /* Para boton enviar */
+.chat-container .chat-input #btn-enviar {
     flex: 0 0 auto;
     background: var(--primary);
     color: white;
-    border: none;
     padding: 10px 16px;
     border-radius: 6px;
 }
 
-.chat-container .chat-input #btn-menu { /* Para boton menu */
-    flex: 0 0 auto; 
+.chat-container .chat-input #btn-menu {
+    flex: 0 0 auto;
     background: var(--secondary);
     color: white;
-    border: none;
     padding: 10px 16px;
     border-radius: 6px;
 }
@@ -240,9 +237,10 @@ body {
 .menu-button,
 .submenu-button {
     display: block;
-    width: 80%;
+    width: 85%;
+    max-width: 400px;
     padding: 12px;
-    margin: 5px 0;
+    margin: 7px auto;
     border: none;
     border-radius: 6px;
     font-size: 15px;
@@ -354,7 +352,6 @@ img {
         height: 100vh;
     }
 
-    /* Sidebar se oculta */
     .chat-sidebar {
         position: absolute;
         top: 0;
@@ -372,7 +369,6 @@ img {
         transform: translateX(0);
     }
 
-    /* Botón flotante para abrir/cerrar */
     .toggle-sidebar-btn {
         position: absolute;
         top: 15px;
@@ -393,7 +389,6 @@ img {
         padding-left: 60px;
     }
 
-    /* Cliente */
     .chat-container {
         width: 95%;
         height: 85vh;

@@ -131,7 +131,7 @@ def handle_message(data):
     emit('message_admin', {'user_id': user_id, 'message': msg}, broadcast=True)
 
     # Si el usuario escribe "menu"
-    if text == "menu": #Devolver a text.lower() - solo testeo
+    if text.lower() == "menu": 
         emit('show_menu', room=user_id)
 
 
@@ -234,7 +234,7 @@ def handle_return_to_main_menu():
 #        "menu": [
 #            {"id": "menu_ambar", "label": "Ambar"},
 #            {"id": "menu_asp", "label": "Aspirantes"},
-#            {"id": "menu_ofe", "label": "Oferta Educativa"},
+#           {"id": "menu_ofe", "label": "Oferta Educativa"},
 #            {"id": "menu_est", "label": "Estudiantes"},
 #            {"id": "menu_mapa", "label": "Mapa de instlaaciones"},
 #        ]

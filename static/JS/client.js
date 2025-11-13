@@ -116,22 +116,30 @@ socket.on("show_menu", () => {
         timestamp: getCurrentTimestamp()
     });
 
+    const chatBox = document.getElementById("chat-box");
     const menuDiv = document.createElement("div");
     menuDiv.classList.add("menu-container");
-    menuDiv.innerHTML = `
-        <button class="menu-btn" data-id="option1">🔹 Opción 1</button>
-        <button class="menu-btn" data-id="option2">🔹 Opción 2</button>
-        <button class="menu-btn" data-id="option3">🔹 Opción 3</button>
-    `;
-    chatBox.appendChild(menuDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
 
-    menuDiv.querySelectorAll(".menu-btn").forEach(btn => {
-        btn.addEventListener("click", () => {
+    // Verificar si el servidor envió un menú
+    if (data && Array.isArray(data.menu)){
+        data.menu.forEach(item => {
+            const btn = document.createElement("button");
+            btn.classList.add("menu-btn");
+            btn.dataset.id = item.id;
+            btn.textContent = `🔹 ${item.label}`;
+            btn.addEventListener("click", () => {
             const id = btn.getAttribute("data-id");
             socket.emit("menu_option_selected", { id });
         });
+            menuDiv.appendChild(btn);
     });
+    } else {
+        const errorText = document.createElement("p");
+        errorText.textContent = "No se pudo cargar el menú. Intenta de nuevo más tarde.";
+        menuDiv.appendChild(errorText);
+    }
+    chatBox.appendChild(menuDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
 });
 
 socket.on("show_link", (data) => {

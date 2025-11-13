@@ -230,7 +230,15 @@ def handle_return_to_main_menu():
 @socketio.on("show_menu_request")
 def handle_show_menu_request():
    # Envia al cliente el evento para desplegar el menú principal
-    emit("show_menu")
+    emit("show_menu", {
+        "menu": [
+            {"id": "menu_ambar", "label": "Ambar"},
+            {"id": "menu_asp", "label": "Aspirantes"},
+            {"id": "menu_ofe", "label": "Oferta Educativa"},
+            {"id": "menu_est", "label": "Estudiantes"},
+            {"id": "menu_mapa", "label": "Mapa de instlaaciones"},
+        ]
+    })
 
 # ==========================
 #       RUN SERVER

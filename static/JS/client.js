@@ -130,7 +130,7 @@ socket.on("show_menu", (data) => {
     if (Array.isArray(data.menu) && data.menu.length > 0) {
         data.menu.forEach(item => {
             const btn = document.createElement("button");
-            btn.classList.add("menu-button");  // <--- CLASE CORRECTA
+            btn.classList.add("menu-button");
             btn.dataset.id = item.id;
             btn.textContent = `🔹 ${item.label}`;
             btn.addEventListener("click", () => {
@@ -157,13 +157,18 @@ socket.on("show_info", (data) => {
     });
 });
 
-// === LINKS ===
+// === LINKS (FUSIONADO: abre la URL directamente) ===
 socket.on("show_link", (data) => {
     addMessageToChat({
         sender: "Tecbot",
-        text: `${data.label}: ${data.link}`,
+        text: `Abriendo: ${data.label}`,
         timestamp: getCurrentTimestamp()
     });
+
+    // *** ESTA ES LA PARTE QUE TE FALTABA ***
+    if (data.link) {
+        window.open(data.link, "_blank");
+    }
 });
 
 // === SUBMENÚ ===
@@ -182,7 +187,7 @@ socket.on("show_submenu", (data) => {
     if (Array.isArray(data.submenu) && data.submenu.length > 0) {
         data.submenu.forEach(item => {
             const btn = document.createElement("button");
-            btn.classList.add("menu-button");  // <--- FIX
+            btn.classList.add("menu-button");
             btn.dataset.id = item.id;
             btn.textContent = `🔹 ${item.label}`;
             btn.addEventListener("click", () => {
@@ -211,4 +216,3 @@ socket.on("show_map", (data) => {
     chatBox.appendChild(img);
     chatBox.scrollTop = chatBox.scrollHeight;
 });
-

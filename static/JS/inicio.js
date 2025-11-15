@@ -1,3 +1,6 @@
+// ===============================
+// Socket.IO
+// ===============================
 const socket = io();
 let userId = null;
 let userName = null;
@@ -15,26 +18,35 @@ socket.on("connected", (data) => {
     socket.emit("join");
 });
 
+// ===============================
 // DOM
+// ===============================
 const chatBox = document.getElementById("chat-box");
 const messageInput = document.getElementById("message");
 const sendButton = document.getElementById("send");
 const menuButton = document.getElementById("menu-btn");
 
+// ===============================
+// Listeners
+// ===============================
 sendButton.addEventListener("click", sendMessage);
 messageInput.addEventListener("keypress", (event) => {
     if (event.key === "Enter") sendMessage();
 });
+
 if (menuButton) {
     menuButton.addEventListener("click", () => {
         socket.emit("message", { text: "menu", timestamp: getCurrentTimestamp() });
     });
 }
 
-// utilidades
+// ===============================
+// Utilidades
+// ===============================
 function getCurrentTimestamp() {
     return new Date().toISOString();
 }
+
 function formatTimestamp(iso) {
     try {
         const d = new Date(iso);
@@ -49,18 +61,33 @@ function formatTimestamp(iso) {
 }
 
 function clearMenus() {
-    document.querySelectorAll(".menu-container, .submenu-container, .info-container, .image-container").forEach(el => el.remove());
+    document.querySelectorAll(".menu-container, .submenu-container, .info-container, .image-container")
+        .forEach(el => el.remove());
 }
 
-function createButton(label, id, className, emitEvent) {
+// ===============================
+// Botón universal (MEJORADO)
+// — Ahora soporta abrir links directamente
+// ===============================
+function createButton(label, id, className, emitEvent, extraData = null) {
     const btn = document.createElement("button");
     btn.textContent = label;
     btn.className = className;
     btn.dataset.id = id;
+
     btn.addEventListener("click", () => {
         clearMenus();
+
+        // 🔥 Comportamiento para LINKS
+        if (extraData && extraData.type === "link" && extraData.link) {
+            window.open(extraData.link, "_blank", "noopener");
+            return;
+        }
+
+        // Comportamiento normal
         socket.emit(emitEvent, { id });
     });
+
     return btn;
 }
 
@@ -74,10 +101,13 @@ function addReturnButton(container) {
     container.appendChild(returnBtn);
 }
 
-// === mensajes ===
+// ===============================
+// Mostrar mensajes normales
+// ===============================
 socket.on("message", (data) => {
     if (!data.timestamp) data.timestamp = getCurrentTimestamp();
 
+    // --- AUDIO ---
     if (data.audio_url) {
         const audioWrapper = document.createElement("div");
         audioWrapper.classList.add("audio-wrapper", data.sender === userName ? "own-message" : "other-message");
@@ -102,6 +132,7 @@ socket.on("message", (data) => {
         return;
     }
 
+    // --- TEXTO NORMAL ---
     const messageElement = document.createElement("div");
     messageElement.classList.add(data.sender === userName ? "own-message" : "other-message");
     const time = formatTimestamp(data.timestamp);
@@ -110,7 +141,9 @@ socket.on("message", (data) => {
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// === mostrar menús ===
+// ===============================
+// MENÚ PRINCIPAL
+// ===============================
 socket.on("show_menu", (data) => {
     clearMenus();
 
@@ -124,7 +157,13 @@ socket.on("show_menu", (data) => {
     container.appendChild(title);
 
     menu.forEach(item => {
-        const btn = createButton(item.label, item.id, "menu-button", "menu_option_selected");
+        const btn = createButton(
+            item.label,
+            item.id,
+            "menu-button",
+            "menu_option_selected",
+            item // <-- importante para soporte de links
+        );
         container.appendChild(btn);
     });
 
@@ -132,6 +171,9 @@ socket.on("show_menu", (data) => {
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
+// ===============================
+// SUBMENÚ
+// ===============================
 socket.on("show_submenu", (data) => {
     clearMenus();
 
@@ -145,7 +187,13 @@ socket.on("show_submenu", (data) => {
     container.appendChild(title);
 
     submenu.forEach(item => {
-        const btn = createButton(item.label, item.id, "submenu-button", "submenu_option_selected");
+        const btn = createButton(
+            item.label,
+            item.id,
+            "submenu-button",
+            "submenu_option_selected",
+            item // <-- soporte de links
+        );
         container.appendChild(btn);
     });
 
@@ -154,7 +202,9 @@ socket.on("show_submenu", (data) => {
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// === *** SISTEMA A *** abrir enlace sin mostrar URL ===
+// ===============================
+// ENLACE (versión limpia)
+// ===============================
 socket.on("show_link", (data) => {
     clearMenus();
 
@@ -176,7 +226,9 @@ socket.on("show_link", (data) => {
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// show_info
+// ===============================
+// INFO
+// ===============================
 socket.on("show_info", (data) => {
     clearMenus();
 
@@ -196,7 +248,9 @@ socket.on("show_info", (data) => {
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// show_map
+// ===============================
+// MAPA
+// ===============================
 socket.on("show_map", (data) => {
     clearMenus();
 
@@ -220,3 +274,14 @@ socket.on("show_map", (data) => {
     chatBox.appendChild(container);
     chatBox.scrollTop = chatBox.scrollHeight;
 });
+
+// ===============================
+// Enviar mensaje
+// ===============================
+function sendMessage() {
+    const msg = messageInput.value.trim();
+    if (msg === "") return;
+
+    socket.emit("message", { text: msg, timestamp: getCurrentTimestamp() });
+    messageInput.value = "";
+}

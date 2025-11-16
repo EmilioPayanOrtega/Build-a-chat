@@ -18,6 +18,46 @@ body {
     color: #222;
 }
 
+button {
+    width: 100%;
+    padding: 10px;
+    background: #3b82f6;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+button:hover{
+    background: #2563eb;
+}
+
+/* 
+    Estilo solo para Login
+*/
+.login-body {
+    background: light-bg;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-container{
+    background: light-bg;
+    padding: 2rem;
+    width: 350px;
+    text-align: center;
+    border-radius: 12px;
+    box-shadow: 0 0 15px black(0.2);
+}
+
+input {
+    width: 100%;
+    padding: 10px;
+    margin: 12px 0;
+    border-radius: 6px;
+}
+
 /* Scrollbar moderno */
 ::-webkit-scrollbar {
     width: 8px;

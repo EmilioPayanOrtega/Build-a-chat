@@ -65,15 +65,18 @@ def top_level_menu_payload():
 # ==========================
 #       RUTAS
 # ==========================
-@app.route('/')
+@app.route('/login') # Página de login
+def login_page():
+    return render_template('login.html')
+
+@app.route('/') # Página de panel cliente
 def client_page():
     return render_template('index.html')
 
 
-@app.route('/admin')
+@app.route('/admin') # Página de panel admin
 def admin_page():
     return render_template('admin.html')
-
 
 # ==========================
 #       SOCKET EVENTS

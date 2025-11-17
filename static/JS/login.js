@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("login-form");
-    const input = document.getElementById("login-name");
+    const input = document.getElementById("name-input");
     const errorMsg = document.getElementById("login-error");
 
     form.addEventListener("submit", (e) => {

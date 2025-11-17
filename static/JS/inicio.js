@@ -8,7 +8,7 @@ let userName = null;
 window.addEventListener("DOMContentLoaded", () => {
     let userName = sessionStorage.getItem("user_name");
     if (!userName){ //Si no existe, manda de regreso al login
-        window.location.href = "/login";
+        window.location.href = "/";
         return;
     }
 

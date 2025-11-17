@@ -17,6 +17,10 @@ window.addEventListener("DOMContentLoaded", () => {
     socket.emit("register_name", { name: userName });
 });
 
+window.addEventListener("beforeunload", () => {
+  sessionStorage.removeItem("user_name");
+});
+
 socket.on("connected", (data) => {
     userId = data.user_id;
     socket.emit("join");

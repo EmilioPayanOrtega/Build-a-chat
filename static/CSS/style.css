@@ -22,28 +22,49 @@ body {
     Estilo solo para Login
 */
 .login-body {
-    background: light-bg;
+    background: linear-gradient(135deg, #4b79a1, #283e51);
     min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
+    font-family: "Comic Sans MS", sans-serif;
 }
 
 .login-container{
     background: light-bg;
-    padding: 2rem;
-    width: 350px;
     text-align: center;
-    border-radius: 12px;
+    padding: 40px 30px; /* 2 rem */
+    width: 350px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow: 0 0 15px black(0.2);
+}
+
+.login-logo img {
+    width: 110px;
+    height: auto;
+    margin-bottom: 15px;
+}
+
+.login-container h2 {
+    margin: 10px 0;
+    font-size: 1.5 rem;
+    font-weight: cursive;
+}
+
+.login-container p {
+    margin-bottom: 20px;
+    opacity: 0.9;
 }
 
 .login-btn button {
     width: 100%;
-    padding: 10px;
+    padding: 12px;
     background: #3b82f6;
     color: white;
-    border-radius: 6px;
+    border-radius: 8px;
+    font-size: 1 rem;
+    font-weight: bold;
     cursor: pointer;
 }
 
@@ -53,9 +74,9 @@ body {
 
 .name-input input {
     width: 100%;
-    padding: 10px;
-    margin: 12px 0;
-    border-radius: 6px;
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 20px;
 }
 
 .error-message {

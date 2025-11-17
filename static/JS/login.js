@@ -1,18 +1,19 @@
 document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("login-form");
-    const nameInput = document.getElementById("name-input");
+    const input = document.getElementById("login-name");
+    const errorMsg = document.getElementById("login-error");
 
     form.addEventListener("submit", (e) => {
         e.preventDefault();
 
-        let name = nameInput.value.trim();
+        const name = input.value.trim();
         if(!name) {
-            alert("Por favor, ingresa un nombre para continuar.");
+            errorMsg.textContent = "Debes ingresar un nombre.";
             return;
         }
 
-        sessionStorage.setItem("userName", name); // Guarda el nombre temportalmente
+        sessionStorage.setItem("user_name", name); // Guarda el nombre temportalmente
 
-        window.location.href = "/"; //Redirige a la página principal
+        window.location.href = "/cliente"; //Redirige a la página principal
     });
 });

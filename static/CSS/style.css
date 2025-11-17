@@ -58,6 +58,12 @@ body {
     border-radius: 6px;
 }
 
+.error-message {
+    color: red;
+    font-size: 0.9em;
+    margin-top: 8px;
+}
+
 /* Scrollbar moderno */
 ::-webkit-scrollbar {
     width: 8px;

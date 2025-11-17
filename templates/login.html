@@ -12,9 +12,10 @@
         <p> Introduce tu nombre para continuar: </p>
 
         <form id = "login-form"> 
-            <input type="text" id="name-input" placeholder="Tu nombre..." required>
+            <input type="text" id="name-input" placeholder="Ingresa tu nombre." required>
             <button type="submit" id="login-btn">Entrar</button>
         </form>
+        <p id="login-error" class="error-message"></p>
     </div>
     <script src="{{ url_for('static', filename='JS/login.js') }}"></script>
 </body>

@@ -65,11 +65,11 @@ def top_level_menu_payload():
 # ==========================
 #       RUTAS
 # ==========================
-@app.route('/login') # Página de login
+@app.route('/') # Página de login
 def login_page():
     return render_template('login.html')
 
-@app.route('/') # Página de panel cliente
+@app.route('/cliente') # Página de panel cliente
 def client_page():
     return render_template('index.html')
 

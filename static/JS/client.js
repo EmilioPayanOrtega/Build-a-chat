@@ -7,8 +7,12 @@ const renderedMessageIds = new Set();
 
 // === Conexión inicial ===
 window.addEventListener("DOMContentLoaded", () => {
-    userName = prompt("Ingresa tu nombre:");
-    if (!userName) userName = "Invitado";
+    let userName = sessionStorage.getItem("user_name");
+    if (!userName){ //Si no existe, manda de regreso al login
+        window.location.href = "/login";
+        return;
+    }
+
     document.getElementById("user-name").textContent = userName;
     socket.emit("register_name", { name: userName });
 });

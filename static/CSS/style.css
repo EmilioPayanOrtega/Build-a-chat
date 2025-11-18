@@ -22,7 +22,7 @@ body {
     Estilo solo para Login
 */
 .login-body {
-    background: linear-gradient(135deg, #4b79a1, #283e51);
+    background: linear-gradient(135deg, #232c34, #283e51);
     min-height: 100vh;
     display: flex;
     justify-content: center;
@@ -41,9 +41,9 @@ body {
     background: light-bg;
     text-align: center;
     padding: 2 rem; /* 2 rem */
-    width: 350px;
+    width: 400px;
     border-radius: 16px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    border: 1px --border;
     box-shadow: var(--shadow);
 }
 

@@ -79,22 +79,7 @@ body {
     opacity: 0.85;
 }
 
-.login-btn button {
-    width: 100%;
-    padding: 12px;
-    background: #6c5ce7;
-    color: #fff;
-    border-radius: 8px;
-    font-size: 1.1rem;
-    cursor: pointer;
-    transition: 0.3s;
-}
-
-.login-btn button:hover{
-    background: #4a90e2;
-}
-
-.name-input input {
+#name-input {
     width: 100%;
     padding: 12px;
     border-radius: 10px;
@@ -102,12 +87,30 @@ body {
     margin-bottom: 15px;
     font-size: 1rem;
     transition: 0.3s;
+    box-sizing: border-box;
 }
 
 .name-input input:focus {
     border-color: #6c5ce7;
     box-shadow: var(--shadow);
     outline: none;
+}
+
+#login-btn {
+    width: 100%;
+    padding: 12px;
+    background: #6c5ce7;
+    color: #fff;
+    border-radius: 8px;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: 0.3s;
+    box-sizing: border-box;
+}
+
+.login-btn button:hover{
+    background: #4a90e2;
 }
 
 .error-message {

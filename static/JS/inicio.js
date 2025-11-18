@@ -136,11 +136,16 @@ socket.on("message", (data) => {
     }
 
     // --- TEXTO NORMAL ---
-    const messageElement = document.createElement("div");
-    messageElement.classList.add(data.sender === userName ? "own-message" : "other-message");
-    const time = formatTimestamp(data.timestamp);
-    messageElement.textContent = `${data.sender}: ${data.text} ${time ? `(${time})` : ""}`;
-    chatBox.appendChild(messageElement);
+    const div = document.createElement("div");
+    const isOwn = data.sender === userName;
+    div.classList.add(isOwn ? "own-message" : "other-message");
+    if (isOwn){                         /* Forzar alineación */
+        div.style.marginLeft = "auto";
+        div.style.marginRight = "0";
+    }
+    const ts = formatTimestampToLocal(data.timestamp);
+    div.textContent = `${data.sender}: ${data.text} ${ts ? `(${ts})` : ""}`;
+    chatBox.appendChild(div);
     chatBox.scrollTop = chatBox.scrollHeight;
 });
 

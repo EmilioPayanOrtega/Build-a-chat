@@ -40,12 +40,15 @@ body {
     box-shadow: 0 0 15px black(0.2);
 }
 
-.login-logo img {
+.login.logo {
+    border: red;
+}
+
+/* .login-logo img {
     width: 200px;
     height: auto;
-    background: red;
     margin-bottom: 15px;
-}
+} */
 
 .login-container h2 {
     margin: 10px 0;

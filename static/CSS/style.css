@@ -55,7 +55,8 @@ body {
 
 .login-logo img {
     width: 50%;
-    height: auto;
+    height: 50%;
+    justify-content: center;
     object-fit: contain;
 } 
 
@@ -178,13 +179,13 @@ body {
     font-size: 18px;
 }
 
-.chat-box {
+#chat-box {
+    display: flex;
+    flex-direction: column;
     flex: 1;
     padding: 12px;
     overflow-y: auto;
     border-bottom: 1px solid var(--border);
-    display: flex;
-    flex-direction: column;
     background: #e5ddd5;
 }
 
@@ -361,8 +362,9 @@ a.submenu-button {
 img {
     border-radius: 6px;
     margin-top: 5px;
+   /* 
     max-width: 100%;
-    height: auto;
+    height: auto; */
     box-shadow: var(--shadow);
 }
 

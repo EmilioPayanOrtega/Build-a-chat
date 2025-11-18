@@ -22,35 +22,25 @@ body {
     Estilo solo para Login
 */
 .login-body {
-    background: linear-gradient(135deg, #232c34, #283e51);
+    background: linear-gradient(135deg, #4a90e2, #6c5ce7);
     min-height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-family: "Comic Sans MS", sans-serif;
 }
 
 .login-section {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 50px;
+    gap: 40px;
+    padding: 20px;
 }
 
-.login-container{
-    background: var(--light-bg);
-    text-align: center;
-    padding: 2rem; /* 2 rem */
-    width: 400px;
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow);
-}
-
+/* Tarjeta para el Logo */
 .login-logo {
     display: flex;
     justify-content: center;
-    margin-bottom: 20px;
 }
 
 .login-logo img {
@@ -58,39 +48,65 @@ body {
     height: auto;
     justify-content: center;
     object-fit: contain;
+    animation: fadeIn 1s ease forwards;
 } 
 
+/* Tarjeta para el Login */
+
+.login-container{
+    background: var(--light-bg);
+    backdrop-filter: blur(10px);
+    text-align: center;
+    padding: 2rem; 
+    width: 400px;
+    border-radius: 16px;
+    border: 1px solid var(--border, 0.5);
+    box-shadow: var(--shadow);
+    animation: slideUp 0.7s ease forwards;
+}
+
+
 .login-container h2 {
-    margin: 10px 0;
-    font-size: 1.5rem;
-    font-weight: cursive;
+    margin-bottom: 10px;
+    font-size: 1.7rem;
+    font-weight: bold;
+    color: #333;
 }
 
 .login-container p {
     margin-bottom: 20px;
-    opacity: 0.9;
+    opacity: 0.85;
 }
 
 .login-btn button {
     width: 100%;
     padding: 12px;
-    background: #3b82f6;
-    color: white;
+    background: #6c5ce7;
+    color: #fff;
     border-radius: 8px;
-    font-size: 1rem;
-    font-weight: bold;
+    font-size: 1.1rem;
     cursor: pointer;
+    transition: 0.3s;
 }
 
 .login-btn button:hover{
-    background: #2563eb;
+    background: #4a90e2;
 }
 
 .name-input input {
     width: 100%;
     padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 20px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    margin-bottom: 15px;
+    font-size: 1rem;
+    transition: 0.3s;
+}
+
+.name-input input:focus {
+    border-color: #6c5ce7;
+    box-shadow: var(--shadow);
+    outline: none;
 }
 
 .error-message {
@@ -480,4 +496,21 @@ img {
         height: 85vh;
         margin: 20px auto;
     }
+}
+
+/* ========================================
+   ANIMACIONES
+======================================== */
+@keyframes fadeIn{
+    from {opacity: 0; 
+        transform: scale(0.9);}
+    to {opacity: 0; 
+        transform: scale(1); }
+}
+
+@keyframes slideUp{
+    from {opacity: 0; 
+        transform: translateY(40px);}
+    to {opacity: 1; 
+        transform: translateY(0); }
 }

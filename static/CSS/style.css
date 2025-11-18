@@ -41,8 +41,9 @@ body {
 }
 
 .login-logo img {
-    width: 110px;
+    width: 200px;
     height: auto;
+    background: red;
     margin-bottom: 15px;
 }
 

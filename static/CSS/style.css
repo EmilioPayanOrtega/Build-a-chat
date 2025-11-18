@@ -48,17 +48,14 @@ body {
 }
 
 .login.logo {
-    width: 50%;
-    height: 200px;
     display: flex;
     justify-content: center;
     margin-bottom: 20px;
 }
 
 .login-logo img {
-    width: 200px;
+    width: 50%;
     height: auto;
-    margin-bottom: 15px;
     object-fit: contain;
 } 
 

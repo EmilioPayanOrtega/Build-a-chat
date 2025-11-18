@@ -34,7 +34,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 100px;
+    gap: 50px;
 }
 
 .login-container{
@@ -54,7 +54,7 @@ body {
 }
 
 .login-logo img {
-    width: 500px;
+    width: 250px;
     height: auto;
     justify-content: center;
     object-fit: contain;
@@ -179,7 +179,7 @@ body {
     font-size: 18px;
 }
 
-.chat-box {
+#chat-box, .chat-box {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -301,6 +301,8 @@ body {
     align-self: flex-end;
     text-align: right;
     box-shadow: var(--shadow);
+    margin-left: auto;
+    margin-right: 0;
 }
 
 .other-message {
@@ -310,6 +312,8 @@ body {
     align-self: flex-start;
     text-align: left;
     box-shadow: var(--shadow);
+    margin-left: 0;
+    margin-right: auto;
 }
 
 /* ========================================

@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='CSS/style.css') }}">
 </head>
 <body class = "login-body">
+    <section class="login-section">
+        
     <div class = "login-logo">
         <img src="{{ url_for('static', filename='img/logo.jpg') }}" alt="Logo">
     </div>
@@ -21,6 +23,7 @@
         </form>
         <p id="login-error" class="error-message"></p>
     </div>
+    </section>
     <script src="{{ url_for('static', filename='JS/login.js') }}"></script>
 </body>
 </html>

@@ -54,8 +54,8 @@ body {
 }
 
 .login-logo img {
-    width: 50%;
-    height: 50%;
+    width: 500px;
+    height: auto;
     justify-content: center;
     object-fit: contain;
 } 
@@ -179,7 +179,7 @@ body {
     font-size: 18px;
 }
 
-#chat-box {
+.chat-box {
     display: flex;
     flex-direction: column;
     flex: 1;

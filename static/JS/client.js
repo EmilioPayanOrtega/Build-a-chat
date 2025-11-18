@@ -116,17 +116,31 @@ function addMessageToChat(data) {
     }
 
     // TEXTO NORMAL
-    const div = document.createElement("div");
-    const isOwn = data.sender === userName;
-    div.classList.add(isOwn ? "own-message" : "other-message");
-    if (isOwn){                         /* Forzar alineación */
-        div.style.marginLeft = "auto";
-        div.style.marginRight = "0";
-    }
-    const ts = formatTimestampToLocal(data.timestamp);
-    div.textContent = `${data.sender}: ${data.text} ${ts ? `(${ts})` : ""}`;
-    chatBox.appendChild(div);
-    chatBox.scrollTop = chatBox.scrollHeight;
+const wrapper = document.createElement("div");
+const isOwn = data.sender === userName;
+
+wrapper.style.display = "flex";
+wrapper.style.flexDirection = "column";
+wrapper.style.maxWidth = "80%";
+wrapper.style.alignSelf = isOwn ? "flex-end" : "flex-start";
+
+// Burbuja de texto
+const bubble = document.createElement("div");
+bubble.classList.add(isOwn ? "own-message" : "other-message");
+bubble.textContent = `${data.sender}: ${data.text}`;
+
+// Timestamp separado
+const ts = document.createElement("div");
+ts.classList.add("timestamp");
+ts.innerText = formatTimestampToLocal(data.timestamp);
+
+// Armado
+wrapper.appendChild(bubble);
+wrapper.appendChild(ts);
+
+chatBox.appendChild(wrapper);
+chatBox.scrollTop = chatBox.scrollHeight;
+
 }
 
 // === MENÚ PRINCIPAL ===

@@ -1,13 +1,13 @@
 const socket = io();
 let userId = null;
-let userName = null;
+let userName = sessionStorage.getItem("user_name");;
 
 // track rendered messages to avoid duplicates
 const renderedMessageIds = new Set();
 
 // === Conexión inicial ===
 window.addEventListener("DOMContentLoaded", () => {
-    let userName = sessionStorage.getItem("user_name");
+    userName = sessionStorage.getItem("user_name");
     if (!userName){ //Si no existe, manda de regreso al login
         window.location.href = "/";
         return;

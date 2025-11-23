@@ -1,6 +1,7 @@
+// static/JS/client.js
 const socket = io();
 let userId = null;
-let userName = sessionStorage.getItem("user_name");;
+let userName = sessionStorage.getItem("user_name");
 
 // track rendered messages to avoid duplicates
 const renderedMessageIds = new Set();
@@ -8,17 +9,20 @@ const renderedMessageIds = new Set();
 // === Conexión inicial ===
 window.addEventListener("DOMContentLoaded", () => {
     userName = sessionStorage.getItem("user_name");
-    if (!userName){ //Si no existe, manda de regreso al login
+    if (!userName) { // Si no existe, manda de regreso al login
         window.location.href = "/";
         return;
     }
 
     document.getElementById("user-name").textContent = userName;
     socket.emit("register_name", { name: userName });
+
+    // Añadir botón "Enviar resumen (PDF)" fijo en la UI del cliente
+    injectSummaryButton();
 });
 
 window.addEventListener("beforeunload", () => {
-  sessionStorage.removeItem("user_name");
+    sessionStorage.removeItem("user_name");
 });
 
 socket.on("connected", (data) => {
@@ -45,12 +49,17 @@ function formatTimestampToLocal(iso) {
     });
 }
 
+function isValidEmail(email) {
+    // chequeo básico
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email).toLowerCase());
+}
+
 const chatBox = document.getElementById("chat-box");
 const messageInput = document.getElementById("message");
 const sendButton = document.getElementById("send");
 const menuButton = document.getElementById("menu-btn");
 
-sendButton.addEventListener("click", sendMessage);
+sendButton?.addEventListener("click", sendMessage);
 
 // botón Menú = envía "menu"
 menuButton?.addEventListener("click", () => {
@@ -59,7 +68,7 @@ menuButton?.addEventListener("click", () => {
 });
 
 // Enter para enviar
-messageInput.addEventListener("keypress", (e) => {
+messageInput?.addEventListener("keypress", (e) => {
     if (e.key === "Enter") sendMessage();
 });
 
@@ -115,131 +124,138 @@ function addMessageToChat(data) {
         return;
     }
 
-    // TEXTO NORMAL
-const wrapper = document.createElement("div");
-const isOwn = data.sender === userName;
+    // TEXTO NORMAL (con timestamp separado)
+    const wrapper = document.createElement("div");
+    const isOwn = data.sender === userName;
 
-wrapper.style.display = "flex";
-wrapper.style.flexDirection = "column";
-wrapper.style.maxWidth = "80%";
-wrapper.style.alignSelf = isOwn ? "flex-end" : "flex-start";
+    wrapper.style.display = "flex";
+    wrapper.style.flexDirection = "column";
+    wrapper.style.maxWidth = "80%";
+    wrapper.style.alignSelf = isOwn ? "flex-end" : "flex-start";
+    wrapper.style.margin = "6px 0";
 
-// Burbuja de texto
-const bubble = document.createElement("div");
-bubble.classList.add(isOwn ? "own-message" : "other-message");
-bubble.textContent = `${data.sender}: ${data.text}`;
+    // Burbuja de texto
+    const bubble = document.createElement("div");
+    bubble.classList.add(isOwn ? "own-message" : "other-message");
+    bubble.textContent = `${data.sender}: ${data.text}`;
 
-// Timestamp separado
-const ts = document.createElement("div");
-ts.classList.add("timestamp");
-ts.innerText = formatTimestampToLocal(data.timestamp);
+    // Timestamp separado (debajo de la burbuja)
+    const ts = document.createElement("div");
+    ts.classList.add("timestamp");
+    ts.style.fontSize = "12px";
+    ts.style.color = "#666";
+    ts.style.marginTop = "6px";
+    ts.innerText = formatTimestampToLocal(data.timestamp);
 
-// Armado
-wrapper.appendChild(bubble);
-wrapper.appendChild(ts);
+    // Armado
+    wrapper.appendChild(bubble);
+    wrapper.appendChild(ts);
 
-chatBox.appendChild(wrapper);
-chatBox.scrollTop = chatBox.scrollHeight;
-
+    chatBox.appendChild(wrapper);
+    chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// === MENÚ PRINCIPAL ===
-socket.on("show_menu", (data) => {
+// =====================
+// SUMMARY (PDF) FLOW
+// =====================
+
+function injectSummaryButton() {
+    // Crear botón flotante / fijo en la UI del cliente
+    const container = document.createElement("div");
+    container.id = "summary-container";
+    container.style.position = "fixed";
+    container.style.right = "20px";
+    container.style.bottom = "20px";
+    container.style.zIndex = "9999";
+
+    const btn = document.createElement("button");
+    btn.id = "summary-btn";
+    btn.textContent = "📨 Enviar resumen (PDF)";
+    btn.style.background = "var(--primary)";
+    btn.style.color = "#fff";
+    btn.style.border = "none";
+    btn.style.padding = "10px 14px";
+    btn.style.borderRadius = "8px";
+    btn.style.cursor = "pointer";
+    btn.style.boxShadow = "0 4px 12px rgba(0,0,0,0.12)";
+    btn.addEventListener("click", onSummaryClick);
+
+    container.appendChild(btn);
+    document.body.appendChild(container);
+}
+
+function onSummaryClick() {
+    // Pedir correo
+    const email = prompt("Ingresa el correo donde deseas recibir el resumen (PDF):");
+    if (!email) {
+        alert("Operación cancelada.");
+        return;
+    }
+    if (!isValidEmail(email)) {
+        alert("Correo inválido. Intenta de nuevo.");
+        return;
+    }
+
+    // Mostrar mensaje en el chat (no contiene link, solo confirmación)
     addMessageToChat({
-        sender: "Tecbot",
-        text: "Aquí está el menú principal. Selecciona una opción:",
+        sender: "Sistema",
+        text: `Se ha solicitado el envío del resumen al correo: ${email}. Se te notificará cuando esté listo.`,
         timestamp: getCurrentTimestamp()
     });
 
-    const menuDiv = document.createElement("div");
-    menuDiv.classList.add("menu-container");
+    // Deshabilitar botón mientras se procesa
+    const btn = document.getElementById("summary-btn");
+    if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = "0.6";
+        btn.textContent = "Generando resumen…";
+    }
 
-    if (Array.isArray(data.menu) && data.menu.length > 0) {
-        data.menu.forEach(item => {
-            const btn = document.createElement("button");
-            btn.classList.add("menu-button");
-            btn.dataset.id = item.id;
-            btn.textContent = `🔹 ${item.label}`;
-            btn.addEventListener("click", () => {
-                socket.emit("menu_option_selected", { id: item.id });
-            });
-            menuDiv.appendChild(btn);
+    // Emitir evento al backend — el backend usará SID para localizar el historial del usuario
+    socket.emit("request_summary", { email });
+}
+
+// Escuchar resultado desde backend
+// payload: { status: "ok"|"error", message: "texto descriptivo" }
+socket.on("summary_result", (payload) => {
+    const btn = document.getElementById("summary-btn");
+    if (btn) {
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        btn.textContent = "📨 Enviar resumen (PDF)";
+    }
+
+    if (!payload) {
+        addMessageToChat({
+            sender: "Sistema",
+            text: "Ocurrió un error: respuesta vacía del servidor.",
+            timestamp: getCurrentTimestamp()
+        });
+        return;
+    }
+
+    if (payload.status === "ok") {
+        addMessageToChat({
+            sender: "Sistema",
+            text: `Resumen enviado correctamente. ${payload.message || ""}`,
+            timestamp: getCurrentTimestamp()
         });
     } else {
-        const error = document.createElement("p");
-        error.textContent = "No se pudo cargar el menú.";
-        menuDiv.appendChild(error);
-    }
-
-    chatBox.appendChild(menuDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
-});
-
-// === INFO ===
-socket.on("show_info", (data) => {
-    addMessageToChat({
-        sender: "Tecbot",
-        text: `${data.label}: ${data.text}`,
-        timestamp: getCurrentTimestamp()
-    });
-});
-
-// === LINKS (FUSIONADO: abre la URL directamente) ===
-socket.on("show_link", (data) => {
-    addMessageToChat({
-        sender: "Tecbot",
-        text: `Abriendo: ${data.label}`,
-        timestamp: getCurrentTimestamp()
-    });
-
-    // *** ESTA ES LA PARTE QUE TE FALTABA ***
-    if (data.link) {
-        window.open(data.link, "_blank");
-    }
-});
-
-// === SUBMENÚ ===
-socket.on("show_submenu", (data) => {
-    addMessageToChat({
-        sender: "Tecbot",
-        text: data?.parent_label
-            ? `Submenú de ${data.parent_label}:`
-            : "Submenú:",
-        timestamp: getCurrentTimestamp()
-    });
-
-    const menuDiv = document.createElement("div");
-    menuDiv.classList.add("menu-container");
-
-    if (Array.isArray(data.submenu) && data.submenu.length > 0) {
-        data.submenu.forEach(item => {
-            const btn = document.createElement("button");
-            btn.classList.add("menu-button");
-            btn.dataset.id = item.id;
-            btn.textContent = `🔹 ${item.label}`;
-            btn.addEventListener("click", () => {
-                socket.emit("submenu_option_selected", { id: item.id });
-            });
-            menuDiv.appendChild(btn);
+        addMessageToChat({
+            sender: "Sistema",
+            text: `Error al generar/enviar resumen: ${payload.message || "desconocido"}`,
+            timestamp: getCurrentTimestamp()
         });
     }
-
-    chatBox.appendChild(menuDiv);
-    chatBox.scrollTop = chatBox.scrollHeight;
 });
 
-// === IMÁGENES ===
-socket.on("show_map", (data) => {
+// Para otros casos en que quieras mostrar progreso en pasos desde el servidor (opcional)
+socket.on("summary_progress", (data) => {
+    // data: { step: "texto corto", detail?: "..." }
+    if (!data || !data.step) return;
     addMessageToChat({
-        sender: "Tecbot",
-        text: `Mostrando: ${data.label}`,
+        sender: "Sistema",
+        text: `Progreso: ${data.step}${data.detail ? " — " + data.detail : ""}`,
         timestamp: getCurrentTimestamp()
     });
-
-    const img = document.createElement("img");
-    img.src = data.image;
-    img.alt = data.label || "Imagen";
-    img.classList.add("menu-image");
-    chatBox.appendChild(img);
-    chatBox.scrollTop = chatBox.scrollHeight;
 });

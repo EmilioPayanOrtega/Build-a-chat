@@ -1,34 +1,42 @@
 from gevent import monkey
 monkey.patch_all()
 
+import os
+import io
+import base64
+import re
+import requests
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit, join_room
 from menu_config import menu_config
 from datetime import datetime, timezone
 import uuid
 
+# PDF generation
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
-# async_mode='gevent' es OK pero dejar que SocketIO seleccione si es necesario.
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET', 'secret!')
 socketio = SocketIO(app, async_mode='gevent', manage_session=False)
 
-# ==========================
-#       DATOS EN MEMORIA
-# ==========================
+# Config / secrets from env
+GEMMA_API_KEY = os.environ.get('GEMMA_API_KEY')
+GEMMA_MODEL = os.environ.get('GEMMA_MODEL', 'gemini-2.1')  # ajustar si necesario
+SENTIMENT_API_URL = os.environ.get('SENTIMENT_API_URL', 'https://doctoradoitc.pythonanywhere.com/sentimiento/')
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
+RESEND_FROM = os.environ.get('RESEND_FROM', 'no-reply@example.com')
+RESEND_API_URL = os.environ.get('RESEND_API_URL', 'https://api.resend.com/emails')
+
+# In-memory data
 chats = {}  # { user_id: [ messageObj, ... ] }
 clientes_conectados = {}  # { user_id: { "name": str } }
 
-
-# ==========================
-#       UTILITIES
-# ==========================
+# Utilities
 def current_timestamp():
-    """ISO 8601 UTC sin microsegundos (ej: 2025-11-10T19:00:00+00:00)"""
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
-
 def make_message(text=None, sender=None, audio_url=None, extra=None):
-    """Crea un objeto de mensaje consistente con message_id para dedupe."""
     msg = {
         "message_id": uuid.uuid4().hex,
         "text": text or "",
@@ -41,17 +49,13 @@ def make_message(text=None, sender=None, audio_url=None, extra=None):
         msg.update(extra)
     return msg
 
-
 def actualizar_lista_admin():
-    """Emitir la lista de clientes (id + name) a todos (admin escuchará)."""
     emit('update_chat_list', [
         {'user_id': uid, 'name': info['name']}
         for uid, info in clientes_conectados.items()
     ], broadcast=True)
 
-
 def top_level_menu_payload():
-    """Construye payload del menú principal (solo id/label/type) para el cliente."""
     top = []
     for key, item in menu_config.items():
         top.append({
@@ -61,85 +65,67 @@ def top_level_menu_payload():
         })
     return top
 
-
-# ==========================
-#       RUTAS
-# ==========================
-@app.route('/') # Página de login
+# -----------------------
+#    Rutas web
+# -----------------------
+@app.route('/')
 def login_page():
     return render_template('login.html')
 
-@app.route('/cliente') # Página de panel cliente
+@app.route('/cliente')
 def client_page():
     return render_template('index.html')
 
-
-@app.route('/admin') # Página de panel admin
+@app.route('/admin')
 def admin_page():
     return render_template('admin.html')
 
-# ==========================
-#       SOCKET EVENTS
-# ==========================
+# -----------------------
+#    Socket handlers
+# -----------------------
 @socketio.on('connect')
 def handle_connect():
-    """Se conecta un socket (aún no se registra nombre)."""
     emit('connected', {'user_id': request.sid})
-
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    """Limpia estructuras y actualiza admin."""
     user_id = request.sid
     clientes_conectados.pop(user_id, None)
     chats.pop(user_id, None)
     actualizar_lista_admin()
 
-
 @socketio.on('join')
 def handle_join():
-    """Cliente pide unirse a su sala privada y pide historial."""
     user_id = request.sid
     join_room(user_id)
     if user_id not in chats:
         chats[user_id] = []
-    # enviamos historial al socket que pidió join
     emit('chat_history', chats[user_id], room=user_id)
-
 
 @socketio.on('admin_join')
 def handle_admin_join():
-    """Cuando el panel admin se conecta, le enviamos la lista actual."""
     actualizar_lista_admin()
-
 
 @socketio.on('register_name')
 def handle_register_name(data):
-    """El cliente registra su nombre (o 'Invitado'). Se envía bienvenida + audio."""
     user_id = request.sid
     name = data.get('name', 'Invitado')
     clientes_conectados[user_id] = {'name': name}
 
-    # Mensaje de bienvenida (texto)
     bienvenida_texto = make_message(
         text=f'Hola {name}, bienvenido a Build a Chat. Para empezar, escriba o presione "menu" para abrir el menú interactivo 🚀',
         sender='Tecbot'
     )
-    # Mensaje con audio (se envía al cliente para que pueda reproducirlo con botón)
     bienvenida_audio = make_message(
-        text='',  # dejar vacío: el cliente mostrará botón ▶
+        text='',
         sender='Tecbot',
         audio_url='/static/audio/bienvenida.mp3'
     )
 
-    # Guardar en historial (texto + audio)
     chats.setdefault(user_id, []).extend([bienvenida_texto, bienvenida_audio])
-
-    # Enviar ambos al cliente (su sala)
     emit('message', bienvenida_texto, room=user_id)
     emit('message', bienvenida_audio, room=user_id)
 
-    # Notificar al admin que hay un cliente nuevo (no enviamos el audio completo al admin)
     emit('message_admin', {
         'user_id': user_id,
         'message': {
@@ -150,27 +136,17 @@ def handle_register_name(data):
         }
     }, broadcast=True)
 
-    # Actualizar lista de clientes
     actualizar_lista_admin()
-
 
 @socketio.on('message')
 def handle_message(data):
-    """
-    Cliente envía mensaje de texto.
-    - Guardamos con message_id
-    - Emitimos 'message' a la sala del usuario (para que su cliente reciba el objeto canonical)
-    - Emitimos 'message_admin' al admin con el mensaje y user_id
-    """
     user_id = request.sid
     name = clientes_conectados.get(user_id, {}).get('name', 'Invitado')
     text = (data.get('text') or '').strip()
     timestamp = data.get('timestamp') or current_timestamp()
-
     if not text:
         return
 
-    # crear mensaje canónico (incluye id)
     msg = {
         "message_id": data.get("message_id") or uuid.uuid4().hex,
         "text": text,
@@ -178,17 +154,12 @@ def handle_message(data):
         "sender": name
     }
 
-    # guardar en historial
     chats.setdefault(user_id, []).append(msg)
-
-    # emitir al propio cliente (su sala) y notificar al admin
     emit('message', msg, room=user_id)
     emit('message_admin', {'user_id': user_id, 'message': msg}, broadcast=True)
 
-    # si escribió "menu" pedimos mostrar menú (con payload)
     if text.lower() == "menu":
         emit('show_menu', {'menu': top_level_menu_payload()}, room=user_id)
-        # notificar admin que el cliente abrió el menú (sin contenido del menú)
         emit('message_admin', {
             'user_id': user_id,
             'message': {
@@ -199,25 +170,16 @@ def handle_message(data):
             }
         }, broadcast=True)
 
-
 @socketio.on('menu_option_selected')
 def handle_menu_option(data):
-    """
-    Cliente eligió una opción principal (menu_config key).
-    - Enviamos al cliente el contenido correspondiente.
-    - Notificamos al admin con un texto simple que diga qué opción escogió el cliente.
-    """
     user_id = request.sid
     option_id = data.get('id')
     option = menu_config.get(option_id)
-
     if not option:
-        # Notificar al cliente que no existe la opción
         emit('show_info', {'label': 'Error', 'text': 'Opción no encontrada.'}, room=user_id)
         return
 
     tipo = option.get('type')
-
     if tipo == "link":
         emit('show_link', {'label': option.get('label'), 'link': option.get('link')}, room=user_id)
     elif tipo == "submenu":
@@ -228,7 +190,6 @@ def handle_menu_option(data):
     elif tipo == "image":
         emit('show_map', {'image': option.get('image'), 'label': option.get('label')}, room=user_id)
 
-    # Notificar al admin (solo texto resumen, no detalles del menú)
     client_name = clientes_conectados.get(user_id, {}).get('name', 'Invitado')
     emit('message_admin', {
         'user_id': user_id,
@@ -240,13 +201,8 @@ def handle_menu_option(data):
         }
     }, broadcast=True)
 
-
 @socketio.on('submenu_option_selected')
 def handle_submenu_option(data):
-    """
-    Cliente eligió opción dentro de un submenu.
-    Buscamos recursivamente en menu_config y actuamos igual que menu_option_selected.
-    """
     user_id = request.sid
     option_id = data.get('id')
 
@@ -271,7 +227,6 @@ def handle_submenu_option(data):
         return
 
     tipo = option.get('type')
-
     if tipo == "link":
         emit('show_link', {'label': option.get('label'), 'link': option.get('link')}, room=user_id)
     elif tipo == "info":
@@ -280,7 +235,6 @@ def handle_submenu_option(data):
         submenu = [{"id": item["id"], "label": item["label"], "type": item.get("type", "info")} for item in option.get("submenu", [])]
         emit('show_submenu', {'submenu': submenu, 'parent_label': option.get('label')}, room=user_id)
 
-    # Notificar admin de la selección (resumen)
     client_name = clientes_conectados.get(user_id, {}).get('name', 'Invitado')
     emit('message_admin', {
         'user_id': user_id,
@@ -292,18 +246,13 @@ def handle_submenu_option(data):
         }
     }, broadcast=True)
 
-
 @socketio.on('admin_select_chat')
 def admin_select_chat(data):
-    """Admin solicita historial de un cliente: devolvemos chats[user_id]."""
     user_id = data.get('user_id')
-    # Nota: no necesitamos join_room(admin, user_id) para enviar chat_history; solo emit al admin socket
     emit('chat_history', chats.get(user_id, []), room=request.sid)
-
 
 @socketio.on('admin_message')
 def handle_admin_message(data):
-    """Admin envía mensaje dirigido a user_id."""
     user_id = data.get('user_id')
     if not user_id:
         return
@@ -319,22 +268,230 @@ def handle_admin_message(data):
     }
 
     chats.setdefault(user_id, []).append(msg)
-
-    # Enviar al cliente
     emit('message', msg, room=user_id)
-    # Notificar al resto de admins/paneles con message_admin (igual que antes)
     emit('message_admin', {'user_id': user_id, 'message': msg}, broadcast=True)
-
 
 @socketio.on('return_to_main_menu')
 def handle_return_to_main_menu():
-    """Forzar despliegue del menú principal en el cliente que lo solicitó."""
     user_id = request.sid
     emit('show_menu', {'menu': top_level_menu_payload()}, room=user_id)
 
+# -----------------------
+#  SUMMARY: generar y enviar PDF por correo
+#  socket event: 'request_summary_email' payload: {'email': 'dest@dominio.com'}
+# -----------------------
+EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
-# ==========================
-#       RUN SERVER
-# ==========================
+def call_gemma_generate_text(prompt_text):
+    """
+    Llamada simple a la API generativa de Google (Gemma). 
+    Ajusta endpoint/modelo según tus credenciales/SDK.
+    """
+    if not GEMMA_API_KEY:
+        raise RuntimeError("GEMMA_API_KEY no configurada en env")
+
+    # Endpoint REST (genérico). Ajusta si tu cuenta usa otro path o librería oficial.
+    url = f"https://generativelanguage.googleapis.com/v1beta2/models/{GEMMA_MODEL}:generateText"
+    headers = {
+        "Authorization": f"Bearer {GEMMA_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    body = {
+        "prompt": {
+            "text": prompt_text
+        },
+        # puedes ajustar parámetros de temperatura, maxOutputTokens, etc.
+        "temperature": 0.2,
+        "maxOutputTokens": 500
+    }
+
+    resp = requests.post(url, json=body, headers=headers, timeout=30)
+    resp.raise_for_status()
+    j = resp.json()
+    # Dependiendo de la respuesta exacta, necesitarás ajustar cómo extraer el texto.
+    # Intentamos buscar campos comunes:
+    if isinstance(j, dict):
+        # varias estructuras posibles, intentamos hallar texto en respuesta
+        # Ej: j.get('candidates')[0]['output'] o j.get('output')[0]['content'][0]['text'] ...
+        if 'candidates' in j and len(j['candidates']) > 0:
+            candidate = j['candidates'][0]
+            return candidate.get('output', candidate.get('content', candidate)).get('text', str(j))
+        # fallback: buscar 'output' -> list -> content -> text
+        out = j.get('output') or j.get('outputs')
+        if out and isinstance(out, list):
+            for part in out:
+                if isinstance(part, dict):
+                    # look for 'content' array
+                    content = part.get('content')
+                    if content and isinstance(content, list):
+                        for c in content:
+                            if isinstance(c, dict) and 'text' in c:
+                                return c['text']
+        # último recurso: stringify
+        return str(j)
+    return str(j)
+
+def analyze_sentiment(text):
+    """Llama a tu API de polaridad (la que diste)."""
+    if not SENTIMENT_API_URL:
+        return None
+    try:
+        r = requests.post(SENTIMENT_API_URL, json={"texto": text}, timeout=15)
+        r.raise_for_status()
+        return r.json()  # asume JSON con la respuesta de sentimiento
+    except Exception as e:
+        # no detener todo si falla el análisis
+        return {"error": str(e)}
+
+def create_pdf_bytes(title, summary_text, sentiment_result, chat_history):
+    """Genera un PDF en memoria y devuelve bytes."""
+    buffer = io.BytesIO()
+    c = canvas.Canvas(buffer, pagesize=letter)
+    w, h = letter
+    margin = 40
+    y = h - margin
+
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(margin, y, title)
+    y -= 24
+
+    c.setFont("Helvetica", 10)
+    c.drawString(margin, y, f"Fecha: {datetime.now().astimezone().isoformat()}")
+    y -= 18
+
+    # Sentiment
+    if sentiment_result:
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(margin, y, "Análisis de polaridad:")
+        y -= 16
+        c.setFont("Helvetica", 10)
+        c.drawString(margin, y, str(sentiment_result))
+        y -= 20
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(margin, y, "Resumen breve:")
+    y -= 14
+    c.setFont("Helvetica", 10)
+
+    # wrap summary lines
+    for line in summary_text.splitlines():
+        wrapped = line
+        c.drawString(margin, y, wrapped)
+        y -= 12
+        if y < margin + 60:
+            c.showPage()
+            y = h - margin
+            c.setFont("Helvetica", 10)
+
+    y -= 6
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(margin, y, "Conversación (últimos mensajes):")
+    y -= 14
+    c.setFont("Helvetica", 9)
+
+    # Chat history
+    for m in (chat_history or [])[-100:]:  # limitar
+        text = f"{m.get('timestamp','')[:19]} {m.get('sender','')}: {m.get('text','')}"
+        # simple wrapping per 90 chars
+        while len(text) > 90:
+            c.drawString(margin, y, text[:90])
+            text = text[90:]
+            y -= 12
+            if y < margin + 40:
+                c.showPage()
+                y = h - margin
+                c.setFont("Helvetica", 9)
+        c.drawString(margin, y, text)
+        y -= 12
+        if y < margin + 40:
+            c.showPage()
+            y = h - margin
+            c.setFont("Helvetica", 9)
+
+    c.showPage()
+    c.save()
+    buffer.seek(0)
+    return buffer.read()
+
+def send_email_with_resend(to_email, subject, html_body, pdf_bytes, filename="summary.pdf"):
+    """Envía correo con Resend. Adjunta el PDF en base64 en attachments."""
+    if not RESEND_API_KEY:
+        raise RuntimeError("RESEND_API_KEY no configurada")
+
+    encoded = base64.b64encode(pdf_bytes).decode('utf-8')
+    payload = {
+        "from": RESEND_FROM,
+        "to": [to_email],
+        "subject": subject,
+        "html": html_body,
+        "attachments": [
+            {
+                "content": encoded,
+                "filename": filename,
+                "type": "application/pdf"
+            }
+        ]
+    }
+    headers = {
+        "Authorization": f"Bearer {RESEND_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    r = requests.post(RESEND_API_URL, json=payload, headers=headers, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+@socketio.on('request_summary_email')
+def handle_request_summary_email(data):
+    """
+    Espera: { 'email': 'dest@example.com' }
+    Flujo:
+      - valida email
+      - obtiene historial del user (chats[request.sid])
+      - crea prompt, llama Gemma para generar resumen
+      - llama API de sentimiento (opcional)
+      - genera PDF
+      - envía PDF por Resend
+      - emite resultado al cliente con 'summary_status'
+    """
+    user_id = request.sid
+    email = (data or {}).get('email', '').strip()
+    if not email or not EMAIL_REGEX.match(email):
+        emit('summary_status', {'ok': False, 'error': 'Email inválido.'}, room=user_id)
+        return
+
+    # obtener historial
+    history = chats.get(user_id, [])
+    # formar texto para resumen
+    text_for_summary = "\n".join([f"{m.get('sender','')}: {m.get('text','')}" for m in history[-200:]])
+    prompt = (
+        "Resume brevemente la siguiente conversación en español (máximo 6-8 líneas). "
+        "Incluye puntos importantes y recomendaciones si aplica.\n\n"
+        f"{text_for_summary}"
+    )
+
+    emit('summary_status', {'ok': None, 'message': 'Generando resumen...'}, room=user_id)
+
+    try:
+        # 1) Generar resumen con Gemma
+        summary_text = call_gemma_generate_text(prompt)
+        # 2) Analizar polaridad
+        sentiment = analyze_sentiment(summary_text)
+        # 3) Generar PDF bytes
+        title = f"Resumen de chat - {clientes_conectados.get(user_id, {}).get('name','Invitado')}"
+        pdf_bytes = create_pdf_bytes(title, summary_text, sentiment, history)
+        # 4) Enviar por Resend
+        subject = f"Resumen de tu chat con Tecbot"
+        html_body = f"<p>Adjunto encontrarás el resumen de tu conversación.</p><p>Resumen breve:<br>{summary_text}</p>"
+        send_resp = send_email_with_resend(email, subject, html_body, pdf_bytes)
+        # éxito
+        emit('summary_status', {'ok': True, 'message': 'Resumen enviado por correo.'}, room=user_id)
+    except Exception as e:
+        # registramos error y notificamos al cliente
+        print("Error al generar/enviar summary:", e)
+        emit('summary_status', {'ok': False, 'error': str(e)}, room=user_id)
+
+# -----------------------
+#  Run
+# -----------------------
 if __name__ == '__main__':
     socketio.run(app, debug=True)

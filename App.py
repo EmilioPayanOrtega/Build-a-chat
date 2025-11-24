@@ -21,10 +21,10 @@ app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET', 'secret!')
 socketio = SocketIO(app, async_mode='gevent', manage_session=False)
 
 # Config / secrets from env
-GEMMA_API_KEY = os.environ.get('GEMMA_API_KEY', 'AIzaSyDw_Uygx7WhsLXoWMhuWAPqGGfFE0vmtG0')
-GEMMA_MODEL = os.environ.get('GEMMA_MODEL', 'gemini-2.1')  # ajustar si necesario
+GEMMA_API_KEY = os.environ.get('GEMMA_API_KEY', 'AIzaSyCFRQXMamJUTF-bXes2blXa_BwpI2MpZq0')
+GEMMA_MODEL = os.environ.get('GEMMA_MODEL', 'gemini-1.5-flash')  # ajustar si necesario
 SENTIMENT_API_URL = os.environ.get('SENTIMENT_API_URL', 'https://doctoradoitc.pythonanywhere.com/sentimiento/')
-RESEND_API_KEY = os.environ.get('RESEND_API_KEY', 're_WHyEwt9P_Mi24VRVrF29iPJ4bh6VQ1uZZ')
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', 're_3Y1HJYBb_JEsHBYs1shLbonKz2NAn4dgS')
 RESEND_FROM = os.environ.get('RESEND_FROM', 'onboarding@resend.dev')
 RESEND_API_URL = os.environ.get('RESEND_API_URL', 'https://api.resend.com/emails')
 

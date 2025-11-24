@@ -27,7 +27,7 @@ GEMMA_API_KEY = os.environ.get('GEMMA_API_KEY')
 GEMMA_MODEL = os.environ.get('GEMMA_MODEL', 'gemma2-9b-it')
 SENTIMENT_API_URL = os.environ.get('SENTIMENT_API_URL', 'https://doctoradoitc.pythonanywhere.com/sentimiento/')
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
-RESEND_FROM = os.environ.get('RESEND_FROM', 'no-reply@example.com')
+RESEND_FROM = os.environ.get('RESEND_FROM', 'onboarding@resend.dev')
 RESEND_API_URL = os.environ.get('RESEND_API_URL', 'https://api.resend.com/emails')
 
 # In-memory data

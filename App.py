@@ -1,3 +1,4 @@
+# app.py (versión corregida y más robusta)
 from gevent import monkey
 monkey.patch_all()
 
@@ -6,7 +7,8 @@ import io
 import base64
 import re
 import requests
-from flask import Flask, render_template, request
+import logging
+from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit, join_room
 from menu_config import menu_config
 from datetime import datetime, timezone
@@ -16,19 +18,23 @@ import uuid
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 
+# --- Config basic logging ---
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("build-a-chat")
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET', 'secret!')
-socketio = SocketIO(app, async_mode='gevent', manage_session=False)
+
+# allow CORS for socket connections (use more strict origins in production if puedes)
+socketio = SocketIO(app, async_mode='gevent', manage_session=False, cors_allowed_origins="*")
 
 # Config / secrets from env
-# Usa un modelo por defecto compatible; puedes cambiar por gemini-1.5-flash,
-# gemma2-9b-it, gemma2-27b-it, etc. según lo disponible en tu cuenta.
 GEMMA_API_KEY = os.environ.get('GEMMA_API_KEY')
-GEMMA_MODEL = os.environ.get('GEMMA_MODEL')
-SENTIMENT_API_URL = os.environ.get('SENTIMENT_API_URL')
+GEMMA_MODEL = os.environ.get('GEMMA_MODEL', 'gemma2-9b-it')
+SENTIMENT_API_URL = os.environ.get('SENTIMENT_API_URL')  
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
-RESEND_FROM = os.environ.get('RESEND_FROM')
-RESEND_API_URL = os.environ.get('RESEND_API_URL')
+RESEND_FROM = os.environ.get('RESEND_FROM', 'onboarding@resend.dev')
+RESEND_API_URL = os.environ.get('RESEND_API_URL', 'https://api.resend.com/emails')
 
 # In-memory data
 chats = {}  # { user_id: [ messageObj, ... ] }
@@ -84,6 +90,10 @@ def client_page():
 def admin_page():
     return render_template('admin.html')
 
+@app.route('/healthz')
+def healthz():
+    return jsonify({"ok": True}), 200
+
 # -----------------------
 #    Socket handlers
 # -----------------------
@@ -102,8 +112,7 @@ def handle_disconnect():
 def handle_join():
     user_id = request.sid
     join_room(user_id)
-    if user_id not in chats:
-        chats[user_id] = []
+    chats.setdefault(user_id, [])
     emit('chat_history', chats[user_id], room=user_id)
 
 @socketio.on('admin_join')
@@ -113,7 +122,7 @@ def handle_admin_join():
 @socketio.on('register_name')
 def handle_register_name(data):
     user_id = request.sid
-    name = data.get('name', 'Invitado')
+    name = (data or {}).get('name', 'Invitado')
     clientes_conectados[user_id] = {'name': name}
 
     bienvenida_texto = make_message(
@@ -283,62 +292,65 @@ def handle_return_to_main_menu():
 # -----------------------
 #  SUMMARY: generar y enviar PDF por correo
 #  socket event: 'request_summary_email' payload: {'email': 'dest@dominio.com'}
+#  compatibilidad: también aceptamos 'request_summary' (legacy)
 # -----------------------
 
-def call_gemma_generate_text(prompt_text):
+def _gemma_call_with_key_or_bearer(url_path, body):
     """
-    Llamada a la API Generative Language (Gemma/Gemini) usando generateContent.
-    Nota: este ejemplo usa la API REST pública con api key en query param.
-    Asegúrate de que tu cuenta y key tengan acceso al modelo seleccionado.
+    Helper: si GEMMA_API_KEY parece 'AIza...' usamos ?key=..., si no usamos Authorization Bearer.
     """
     if not GEMMA_API_KEY:
         raise RuntimeError("GEMMA_API_KEY no configurada en env")
 
-    # Usar generateContent (v1) y pasar la API KEY como query param
-    url = f"https://generativelanguage.googleapis.com/v1/models/{GEMMA_MODEL}:generateContent?key={GEMMA_API_KEY}"
+    if GEMMA_API_KEY.startswith("AIza"):
+        # API key style (public key param)
+        url = f"{url_path}?key={GEMMA_API_KEY}"
+        headers = {"Content-Type": "application/json"}
+    else:
+        url = url_path
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {GEMMA_API_KEY}"
+        }
+    return requests.post(url, json=body, headers=headers, timeout=30)
 
+def call_gemma_generate_text(prompt_text):
+    """
+    Llamada a la API Generative Language. Maneja distintos formatos de respuesta.
+    """
+    # endpoint base: intentamos generateContent v1 (estructura más común)
+    base_url = f"https://generativelanguage.googleapis.com/v1/models/{GEMMA_MODEL}:generateContent"
     body = {
         "contents": [
-            {
-                "parts": [
-                    { "text": prompt_text }
-                ]
-            }
-        ],
-        # Opcionales: control de tokens / temperatura (si el endpoint/model lo soporta)
-        # "temperature": 0.2,
-        # "maxOutputTokens": 500
+            {"parts": [{"text": prompt_text}]}
+        ]
     }
 
-    resp = requests.post(url, json=body, timeout=30)
+    resp = _gemma_call_with_key_or_bearer(base_url, body)
     resp.raise_for_status()
     data = resp.json()
 
-    # Extraer texto de la respuesta con varios fallback
-    # Estructuras posibles (según versiones):
-    # - data["candidates"][0]["content"]["parts"][0]["text"]
-    # - data["candidates"][0]["output"] (string)
-    # - data["output"][0]["content"][0]["text"]
+    # Extraer texto de varios formatos conocidos
     try:
-        # candidatos (forma común)
+        # candidatos estilo: data["candidates"][0]["content"]["parts"][0]["text"]
         if isinstance(data, dict):
             if "candidates" in data and isinstance(data["candidates"], list) and len(data["candidates"]) > 0:
                 cand = data["candidates"][0]
-                # candidate puede tener "content" con "parts"
                 if isinstance(cand, dict):
-                    if "content" in cand and isinstance(cand["content"], dict):
-                        cont = cand["content"]
-                        # content.parts -> list -> dict with "text"
+                    # candidate.content.parts
+                    cont = cand.get("content")
+                    if isinstance(cont, dict):
                         parts = cont.get("parts")
-                        if isinstance(parts, list) and len(parts) > 0 and isinstance(parts[0], dict) and "text" in parts[0]:
+                        if isinstance(parts, list) and parts and isinstance(parts[0], dict) and "text" in parts[0]:
                             return parts[0]["text"]
-                    # candidate.output (string)
-                    if "output" in cand and isinstance(cand["output"], str):
-                        return cand["output"]
+                    # candidate.output string
+                    out_str = cand.get("output")
+                    if isinstance(out_str, str):
+                        return out_str
 
-            # output style fallback
+            # fallback a output -> content
             out = data.get("output") or data.get("outputs")
-            if isinstance(out, list) and len(out) > 0:
+            if isinstance(out, list):
                 for part in out:
                     if isinstance(part, dict):
                         content = part.get("content")
@@ -347,24 +359,24 @@ def call_gemma_generate_text(prompt_text):
                                 if isinstance(c, dict) and "text" in c:
                                     return c["text"]
 
-        # Si no encontramos ninguna, devolvemos el json como string (útil para debug)
+        # si no encontramos nada conocido, devolvemos la representación string (útil para debug)
         return str(data)
     except Exception:
         return str(data)
 
 def analyze_sentiment(text):
-    """Llama a tu API de polaridad (la que diste)."""
+    """Llama a tu API de polaridad (opcional)."""
     if not SENTIMENT_API_URL:
         return None
     try:
         r = requests.post(SENTIMENT_API_URL, json={"texto": text}, timeout=15)
         r.raise_for_status()
-        return r.json()  # asume JSON con la respuesta de sentimiento
+        return r.json()
     except Exception as e:
+        logger.warning("Error al llamar API de sentimiento: %s", e)
         return {"error": str(e)}
 
 def create_pdf_bytes(title, summary_text, sentiment_result, chat_history):
-    """Genera un PDF en memoria y devuelve bytes."""
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=letter)
     w, h = letter
@@ -379,7 +391,6 @@ def create_pdf_bytes(title, summary_text, sentiment_result, chat_history):
     c.drawString(margin, y, f"Fecha: {datetime.now().astimezone().isoformat()}")
     y -= 18
 
-    # Sentiment
     if sentiment_result:
         c.setFont("Helvetica-Bold", 11)
         c.drawString(margin, y, "Análisis de polaridad:")
@@ -396,7 +407,6 @@ def create_pdf_bytes(title, summary_text, sentiment_result, chat_history):
     y -= 14
     c.setFont("Helvetica", 10)
 
-    # wrap summary lines
     for line in (summary_text or "").splitlines():
         if not line:
             continue
@@ -421,8 +431,7 @@ def create_pdf_bytes(title, summary_text, sentiment_result, chat_history):
     y -= 14
     c.setFont("Helvetica", 9)
 
-    # Chat history
-    for m in (chat_history or [])[-100:]:  # limitar
+    for m in (chat_history or [])[-100:]:
         text = f"{m.get('timestamp','')[:19]} {m.get('sender','')}: {m.get('text','')}"
         while len(text) > 90:
             c.drawString(margin, y, text[:90])
@@ -471,32 +480,15 @@ def send_email_with_resend(to_email, subject, html_body, pdf_bytes, filename="su
     r.raise_for_status()
     return r.json()
 
-@socketio.on('request_summary_email')
-def handle_request_summary_email(data):
-    """
-    Espera: { 'email': 'dest@example.com' }
-    Flujo:
-      - valida email
-      - obtiene historial del user (chats[request.sid])
-      - crea prompt, llama Gemma para generar resumen
-      - llama API de sentimiento (opcional)
-      - genera PDF
-      - envía PDF por Resend
-      - emite resultado al cliente con 'summary_status'
-    """
-    user_id = request.sid
-    email = (data or {}).get('email', '').strip()
-    if not email or not EMAIL_REGEX.match(email):
-        emit('summary_status', {'ok': False, 'error': 'Email inválido.'}, room=user_id)
-        return
+def _handle_summary_request(user_id, email):
+    """Flujo interno para generar y enviar el resumen (sin socket)."""
+    if not EMAIL_REGEX.match(email):
+        return {"ok": False, "error": "Email inválido."}
 
-    # obtener historial
     history = chats.get(user_id, [])
-    # formar texto para resumen
     text_for_summary = "\n".join([f"{m.get('sender','')}: {m.get('text','')}" for m in history[-200:]])
     if not text_for_summary:
-        emit('summary_status', {'ok': False, 'error': 'No hay historial para resumir.'}, room=user_id)
-        return
+        return {"ok": False, "error": "No hay historial para resumir."}
 
     prompt = (
         "Resume brevemente la siguiente conversación en español (máximo 6-8 líneas). "
@@ -504,33 +496,53 @@ def handle_request_summary_email(data):
         f"{text_for_summary}"
     )
 
-    emit('summary_status', {'ok': None, 'message': 'Generando resumen...'}, room=user_id)
-
+    # 1) Generar resumen
     try:
-        # 1) Generar resumen con Gemma
         summary_text = call_gemma_generate_text(prompt)
-
-        # 2) Analizar polaridad (sobre el resumen)
-        sentiment = analyze_sentiment(summary_text)
-
-        # 3) Generar PDF bytes
-        title = f"Resumen de chat - {clientes_conectados.get(user_id, {}).get('name','Invitado')}"
-        pdf_bytes = create_pdf_bytes(title, summary_text, sentiment, history)
-
-        # 4) Enviar por Resend
-        subject = f"Resumen de tu chat con Tecbot"
-        html_body = f"<p>Adjunto encontrarás el resumen de tu conversación.</p><p>Resumen breve:<br>{summary_text}</p>"
-        send_resp = send_email_with_resend(email, subject, html_body, pdf_bytes)
-
-        # éxito
-        emit('summary_status', {'ok': True, 'message': 'Resumen enviado por correo.'}, room=user_id)
     except Exception as e:
-        # log sencillo en consola (puedes mejorar con logger)
-        print("Error al generar/enviar summary:", e)
-        emit('summary_status', {'ok': False, 'error': str(e)}, room=user_id)
+        logger.exception("Error al llamar Gemma/Gemini")
+        return {"ok": False, "error": f"Error Gemma: {e}"}
+
+    # 2) Analizar polaridad (opcional)
+    sentiment = analyze_sentiment(summary_text) if SENTIMENT_API_URL else None
+
+    # 3) Crear PDF
+    title = f"Resumen de chat - {clientes_conectados.get(user_id, {}).get('name','Invitado')}"
+    pdf_bytes = create_pdf_bytes(title, summary_text, sentiment, history)
+
+    # 4) Enviar por Resend
+    try:
+        send_resp = send_email_with_resend(email, f"Resumen de tu chat con Tecbot", f"<p>Resumen:<br>{summary_text}</p>", pdf_bytes)
+    except Exception as e:
+        logger.exception("Error al enviar por Resend")
+        return {"ok": False, "error": f"Error al enviar correo: {e}"}
+
+    return {"ok": True, "message": "Resumen enviado por correo."}
+
+@socketio.on('request_summary_email')
+def handle_request_summary_email(data):
+    user_id = request.sid
+    email = (data or {}).get('email', '').strip()
+    # send immediate status
+    emit('summary_status', {'ok': None, 'message': 'Iniciando generación de resumen...'}, room=user_id)
+
+    result = _handle_summary_request(user_id, email)
+    if result.get("ok"):
+        emit('summary_status', {'ok': True, 'message': result.get("message")}, room=user_id)
+    else:
+        emit('summary_status', {'ok': False, 'error': result.get("error")}, room=user_id)
+
+# backward-compatible event name
+@socketio.on('request_summary')
+def handle_request_summary_legacy(data):
+    handle_request_summary_email(data)
 
 # -----------------------
 #  Run
 # -----------------------
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    # Log if env vars missing (do not crash; will error at runtime when used)
+    logger.info("GEMMA_API_KEY present: %s", bool(GEMMA_API_KEY))
+    logger.info("RESEND_API_KEY present: %s", bool(RESEND_API_KEY))
+    logger.info("SENTIMENT_API_URL present: %s", bool(SENTIMENT_API_URL))
+    socketio.run(app, debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

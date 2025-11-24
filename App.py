@@ -21,11 +21,11 @@ app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET', 'secret!')
 socketio = SocketIO(app, async_mode='gevent', manage_session=False)
 
 # Config / secrets from env
-GEMMA_API_KEY = os.environ.get('GEMMA_API_KEY')
+GEMMA_API_KEY = os.environ.get('GEMMA_API_KEY', 'AIzaSyDw_Uygx7WhsLXoWMhuWAPqGGfFE0vmtG0')
 GEMMA_MODEL = os.environ.get('GEMMA_MODEL', 'gemini-2.1')  # ajustar si necesario
 SENTIMENT_API_URL = os.environ.get('SENTIMENT_API_URL', 'https://doctoradoitc.pythonanywhere.com/sentimiento/')
-RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
-RESEND_FROM = os.environ.get('RESEND_FROM', 'no-reply@example.com')
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', 're_WHyEwt9P_Mi24VRVrF29iPJ4bh6VQ1uZZ')
+RESEND_FROM = os.environ.get('RESEND_FROM', 'onboarding@resend.dev')
 RESEND_API_URL = os.environ.get('RESEND_API_URL', 'https://api.resend.com/emails')
 
 # In-memory data
@@ -33,6 +33,8 @@ chats = {}  # { user_id: [ messageObj, ... ] }
 clientes_conectados = {}  # { user_id: { "name": str } }
 
 # Utilities
+EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
+
 def current_timestamp():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
@@ -280,17 +282,16 @@ def handle_return_to_main_menu():
 #  SUMMARY: generar y enviar PDF por correo
 #  socket event: 'request_summary_email' payload: {'email': 'dest@dominio.com'}
 # -----------------------
-EMAIL_REGEX = re.compile(r"^[^@]+@[^@]+\.[^@]+$")
 
 def call_gemma_generate_text(prompt_text):
     """
-    Llamada simple a la API generativa de Google (Gemma). 
+    Llamada simple a la API generativa de Google (Gemma / Gemini).
     Ajusta endpoint/modelo según tus credenciales/SDK.
     """
     if not GEMMA_API_KEY:
         raise RuntimeError("GEMMA_API_KEY no configurada en env")
 
-    # Endpoint REST (genérico). Ajusta si tu cuenta usa otro path o librería oficial.
+    # Usamos el endpoint REST de Generative Language API (v1beta2)
     url = f"https://generativelanguage.googleapis.com/v1beta2/models/{GEMMA_MODEL}:generateText"
     headers = {
         "Authorization": f"Bearer {GEMMA_API_KEY}",
@@ -300,7 +301,6 @@ def call_gemma_generate_text(prompt_text):
         "prompt": {
             "text": prompt_text
         },
-        # puedes ajustar parámetros de temperatura, maxOutputTokens, etc.
         "temperature": 0.2,
         "maxOutputTokens": 500
     }
@@ -308,26 +308,34 @@ def call_gemma_generate_text(prompt_text):
     resp = requests.post(url, json=body, headers=headers, timeout=30)
     resp.raise_for_status()
     j = resp.json()
-    # Dependiendo de la respuesta exacta, necesitarás ajustar cómo extraer el texto.
-    # Intentamos buscar campos comunes:
+
+    # Intentamos extraer el texto de varias estructuras posibles
     if isinstance(j, dict):
-        # varias estructuras posibles, intentamos hallar texto en respuesta
-        # Ej: j.get('candidates')[0]['output'] o j.get('output')[0]['content'][0]['text'] ...
+        # "candidates" estructura
         if 'candidates' in j and len(j['candidates']) > 0:
             candidate = j['candidates'][0]
-            return candidate.get('output', candidate.get('content', candidate)).get('text', str(j))
-        # fallback: buscar 'output' -> list -> content -> text
+            # candidate puede tener 'output' o 'content' / 'text'
+            if isinstance(candidate, dict):
+                if 'output' in candidate and isinstance(candidate['output'], str):
+                    return candidate['output']
+                if 'content' in candidate:
+                    c = candidate['content']
+                    # buscar texto en content
+                    if isinstance(c, list):
+                        for part in c:
+                            if isinstance(part, dict) and 'text' in part:
+                                return part['text']
+        # fallback a 'output' -> list -> content -> text
         out = j.get('output') or j.get('outputs')
         if out and isinstance(out, list):
             for part in out:
                 if isinstance(part, dict):
-                    # look for 'content' array
                     content = part.get('content')
                     if content and isinstance(content, list):
                         for c in content:
                             if isinstance(c, dict) and 'text' in c:
                                 return c['text']
-        # último recurso: stringify
+        # último recurso
         return str(j)
     return str(j)
 
@@ -340,7 +348,6 @@ def analyze_sentiment(text):
         r.raise_for_status()
         return r.json()  # asume JSON con la respuesta de sentimiento
     except Exception as e:
-        # no detener todo si falla el análisis
         return {"error": str(e)}
 
 def create_pdf_bytes(title, summary_text, sentiment_result, chat_history):
@@ -375,8 +382,18 @@ def create_pdf_bytes(title, summary_text, sentiment_result, chat_history):
 
     # wrap summary lines
     for line in summary_text.splitlines():
-        wrapped = line
-        c.drawString(margin, y, wrapped)
+        if not line:
+            continue
+        # dividir en trozos de ~90 chars para evitar overflow
+        while len(line) > 90:
+            c.drawString(margin, y, line[:90])
+            line = line[90:]
+            y -= 12
+            if y < margin + 60:
+                c.showPage()
+                y = h - margin
+                c.setFont("Helvetica", 10)
+        c.drawString(margin, y, line)
         y -= 12
         if y < margin + 60:
             c.showPage()
@@ -463,6 +480,10 @@ def handle_request_summary_email(data):
     history = chats.get(user_id, [])
     # formar texto para resumen
     text_for_summary = "\n".join([f"{m.get('sender','')}: {m.get('text','')}" for m in history[-200:]])
+    if not text_for_summary:
+        emit('summary_status', {'ok': False, 'error': 'No hay historial para resumir.'}, room=user_id)
+        return
+
     prompt = (
         "Resume brevemente la siguiente conversación en español (máximo 6-8 líneas). "
         "Incluye puntos importantes y recomendaciones si aplica.\n\n"
@@ -474,19 +495,22 @@ def handle_request_summary_email(data):
     try:
         # 1) Generar resumen con Gemma
         summary_text = call_gemma_generate_text(prompt)
-        # 2) Analizar polaridad
+
+        # 2) Analizar polaridad (sobre el resumen)
         sentiment = analyze_sentiment(summary_text)
+
         # 3) Generar PDF bytes
         title = f"Resumen de chat - {clientes_conectados.get(user_id, {}).get('name','Invitado')}"
         pdf_bytes = create_pdf_bytes(title, summary_text, sentiment, history)
+
         # 4) Enviar por Resend
         subject = f"Resumen de tu chat con Tecbot"
         html_body = f"<p>Adjunto encontrarás el resumen de tu conversación.</p><p>Resumen breve:<br>{summary_text}</p>"
         send_resp = send_email_with_resend(email, subject, html_body, pdf_bytes)
+
         # éxito
         emit('summary_status', {'ok': True, 'message': 'Resumen enviado por correo.'}, room=user_id)
     except Exception as e:
-        # registramos error y notificamos al cliente
         print("Error al generar/enviar summary:", e)
         emit('summary_status', {'ok': False, 'error': str(e)}, room=user_id)
 

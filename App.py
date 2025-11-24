@@ -1,11 +1,3 @@
-print("== ENV DEBUG ==")
-print("GEMMA_API_KEY:", os.environ.get("GEMMA_API_KEY"))
-print("RESEND_API_KEY:", os.environ.get("RESEND_API_KEY"))
-print("RESEND_FROM:", os.environ.get("RESEND_FROM"))
-print("SENTIMENT_API_URL:", os.environ.get("SENTIMENT_API_URL"))
-print("================")
-
-
 from gevent import monkey
 monkey.patch_all()
 
@@ -32,11 +24,11 @@ socketio = SocketIO(app, async_mode='gevent', manage_session=False)
 # Usa un modelo por defecto compatible; puedes cambiar por gemini-1.5-flash,
 # gemma2-9b-it, gemma2-27b-it, etc. según lo disponible en tu cuenta.
 GEMMA_API_KEY = os.environ.get('GEMMA_API_KEY')
-GEMMA_MODEL = os.environ.get('GEMMA_MODEL', 'gemma2-9b-it')
-SENTIMENT_API_URL = os.environ.get('SENTIMENT_API_URL', 'https://doctoradoitc.pythonanywhere.com/sentimiento/')
+GEMMA_MODEL = os.environ.get('GEMMA_MODEL')
+SENTIMENT_API_URL = os.environ.get('SENTIMENT_API_URL')
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
-RESEND_FROM = os.environ.get('RESEND_FROM', 'onboarding@resend.dev')
-RESEND_API_URL = os.environ.get('RESEND_API_URL', 'https://api.resend.com/emails')
+RESEND_FROM = os.environ.get('RESEND_FROM')
+RESEND_API_URL = os.environ.get('RESEND_API_URL')
 
 # In-memory data
 chats = {}  # { user_id: [ messageObj, ... ] }

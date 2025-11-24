@@ -1,3 +1,11 @@
+print("== ENV DEBUG ==")
+print("GEMMA_API_KEY:", os.environ.get("GEMMA_API_KEY"))
+print("RESEND_API_KEY:", os.environ.get("RESEND_API_KEY"))
+print("RESEND_FROM:", os.environ.get("RESEND_FROM"))
+print("SENTIMENT_API_URL:", os.environ.get("SENTIMENT_API_URL"))
+print("================")
+
+
 from gevent import monkey
 monkey.patch_all()
 

@@ -407,8 +407,46 @@ menu_config = {
                                 "link": "https://www.culiacan.tecnm.mx/mcc-tutorias-generacion-2020-2022"
                             }
                         ]
-                    }
-                    # Repite para los otros posgrados
+                    },
+                    {
+                        "id": "pos_ingenieria",
+                        "label": "Maestría en Ciencias de la Ingeniería",
+                        "type": "submenu",
+                        "submenu": [
+                            {
+                                "id": "ingenieria_info",
+                                "label": "Información ",
+                                "type": "link",
+                                "link": "https://www.culiacan.tecnm.mx/maestria-en-ciencias-de-la-ingenieria"
+                            },
+                            {
+                                "id": "ingenieria_tutoria",
+                                "label": "Tutoría",
+                                "type": "link",
+                                "link": "https://www.culiacan.tecnm.mx/mci-tutoria-generacion-2021-2023"
+                            }
+                        ]
+                    },
+                    {
+                        "id": "pos_doctorado_inge",
+                        "label": "Doctorado en Ciencias de la Ingeniería",
+                        "type": "submenu",
+                        "submenu": [
+                            {
+                                "id": "doc_ingenieria_info",
+                                "label": "Información ",
+                                "type": "link",
+                                "link": "https://www.culiacan.tecnm.mx/posgrados/doctorado-en-ciencias-de-la-ingenieria"
+                            },
+                            {
+                                "id": "doc_ingenieria_tutoria",
+                                "label": "Tutoría",
+                                "type": "link",
+                                "link": "https://www.culiacan.tecnm.mx/doctorado-en-ciencias-de-la-ingenieria-tutoria-generacion-2022-2026-1"
+                            }
+                        ]
+                    },
+                    
                 ]
                 
             },
@@ -511,6 +549,12 @@ menu_config = {
                 "label": "Gestión Tecnológica y Vinculación",
                 "type": "submenu",
                 "submenu": [
+                    {
+                        "id": "servicio_soc",
+                        "label": "Servicio Social",
+                        "type": "link",
+                        "link": "https://www.facebook.com/people/Servicio-social-ITC/100063981543154/?fref=ts"
+                    },
                     {
                         "id": "residencias",
                         "label": "Residencias Profesionales",

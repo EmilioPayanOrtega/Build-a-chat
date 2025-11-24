@@ -21,11 +21,13 @@ app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET', 'secret!')
 socketio = SocketIO(app, async_mode='gevent', manage_session=False)
 
 # Config / secrets from env
-GEMMA_API_KEY = os.environ.get('GEMMA_API_KEY', 'AIzaSyCFRQXMamJUTF-bXes2blXa_BwpI2MpZq0')
-GEMMA_MODEL = os.environ.get('GEMMA_MODEL', 'gemini-1.5-flash')  # ajustar si necesario
+# Usa un modelo por defecto compatible; puedes cambiar por gemini-1.5-flash,
+# gemma2-9b-it, gemma2-27b-it, etc. según lo disponible en tu cuenta.
+GEMMA_API_KEY = os.environ.get('GEMMA_API_KEY')
+GEMMA_MODEL = os.environ.get('GEMMA_MODEL', 'gemma2-9b-it')
 SENTIMENT_API_URL = os.environ.get('SENTIMENT_API_URL', 'https://doctoradoitc.pythonanywhere.com/sentimiento/')
-RESEND_API_KEY = os.environ.get('RESEND_API_KEY', 're_3Y1HJYBb_JEsHBYs1shLbonKz2NAn4dgS')
-RESEND_FROM = os.environ.get('RESEND_FROM', 'onboarding@resend.dev')
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
+RESEND_FROM = os.environ.get('RESEND_FROM', 'no-reply@example.com')
 RESEND_API_URL = os.environ.get('RESEND_API_URL', 'https://api.resend.com/emails')
 
 # In-memory data
@@ -285,59 +287,70 @@ def handle_return_to_main_menu():
 
 def call_gemma_generate_text(prompt_text):
     """
-    Llamada simple a la API generativa de Google (Gemma / Gemini).
-    Ajusta endpoint/modelo según tus credenciales/SDK.
+    Llamada a la API Generative Language (Gemma/Gemini) usando generateContent.
+    Nota: este ejemplo usa la API REST pública con api key en query param.
+    Asegúrate de que tu cuenta y key tengan acceso al modelo seleccionado.
     """
     if not GEMMA_API_KEY:
         raise RuntimeError("GEMMA_API_KEY no configurada en env")
 
-    # Usamos el endpoint REST de Generative Language API (v1beta2)
-    url = f"https://generativelanguage.googleapis.com/v1beta2/models/{GEMMA_MODEL}:generateText"
-    headers = {
-        "Authorization": f"Bearer {GEMMA_API_KEY}",
-        "Content-Type": "application/json"
-    }
+    # Usar generateContent (v1) y pasar la API KEY como query param
+    url = f"https://generativelanguage.googleapis.com/v1/models/{GEMMA_MODEL}:generateContent?key={GEMMA_API_KEY}"
+
     body = {
-        "prompt": {
-            "text": prompt_text
-        },
-        "temperature": 0.2,
-        "maxOutputTokens": 500
+        "contents": [
+            {
+                "parts": [
+                    { "text": prompt_text }
+                ]
+            }
+        ],
+        # Opcionales: control de tokens / temperatura (si el endpoint/model lo soporta)
+        # "temperature": 0.2,
+        # "maxOutputTokens": 500
     }
 
-    resp = requests.post(url, json=body, headers=headers, timeout=30)
+    resp = requests.post(url, json=body, timeout=30)
     resp.raise_for_status()
-    j = resp.json()
+    data = resp.json()
 
-    # Intentamos extraer el texto de varias estructuras posibles
-    if isinstance(j, dict):
-        # "candidates" estructura
-        if 'candidates' in j and len(j['candidates']) > 0:
-            candidate = j['candidates'][0]
-            # candidate puede tener 'output' o 'content' / 'text'
-            if isinstance(candidate, dict):
-                if 'output' in candidate and isinstance(candidate['output'], str):
-                    return candidate['output']
-                if 'content' in candidate:
-                    c = candidate['content']
-                    # buscar texto en content
-                    if isinstance(c, list):
-                        for part in c:
-                            if isinstance(part, dict) and 'text' in part:
-                                return part['text']
-        # fallback a 'output' -> list -> content -> text
-        out = j.get('output') or j.get('outputs')
-        if out and isinstance(out, list):
-            for part in out:
-                if isinstance(part, dict):
-                    content = part.get('content')
-                    if content and isinstance(content, list):
-                        for c in content:
-                            if isinstance(c, dict) and 'text' in c:
-                                return c['text']
-        # último recurso
-        return str(j)
-    return str(j)
+    # Extraer texto de la respuesta con varios fallback
+    # Estructuras posibles (según versiones):
+    # - data["candidates"][0]["content"]["parts"][0]["text"]
+    # - data["candidates"][0]["output"] (string)
+    # - data["output"][0]["content"][0]["text"]
+    try:
+        # candidatos (forma común)
+        if isinstance(data, dict):
+            if "candidates" in data and isinstance(data["candidates"], list) and len(data["candidates"]) > 0:
+                cand = data["candidates"][0]
+                # candidate puede tener "content" con "parts"
+                if isinstance(cand, dict):
+                    if "content" in cand and isinstance(cand["content"], dict):
+                        cont = cand["content"]
+                        # content.parts -> list -> dict with "text"
+                        parts = cont.get("parts")
+                        if isinstance(parts, list) and len(parts) > 0 and isinstance(parts[0], dict) and "text" in parts[0]:
+                            return parts[0]["text"]
+                    # candidate.output (string)
+                    if "output" in cand and isinstance(cand["output"], str):
+                        return cand["output"]
+
+            # output style fallback
+            out = data.get("output") or data.get("outputs")
+            if isinstance(out, list) and len(out) > 0:
+                for part in out:
+                    if isinstance(part, dict):
+                        content = part.get("content")
+                        if isinstance(content, list):
+                            for c in content:
+                                if isinstance(c, dict) and "text" in c:
+                                    return c["text"]
+
+        # Si no encontramos ninguna, devolvemos el json como string (útil para debug)
+        return str(data)
+    except Exception:
+        return str(data)
 
 def analyze_sentiment(text):
     """Llama a tu API de polaridad (la que diste)."""
@@ -372,7 +385,10 @@ def create_pdf_bytes(title, summary_text, sentiment_result, chat_history):
         c.drawString(margin, y, "Análisis de polaridad:")
         y -= 16
         c.setFont("Helvetica", 10)
-        c.drawString(margin, y, str(sentiment_result))
+        try:
+            c.drawString(margin, y, str(sentiment_result))
+        except Exception:
+            c.drawString(margin, y, repr(sentiment_result))
         y -= 20
 
     c.setFont("Helvetica-Bold", 11)
@@ -381,10 +397,9 @@ def create_pdf_bytes(title, summary_text, sentiment_result, chat_history):
     c.setFont("Helvetica", 10)
 
     # wrap summary lines
-    for line in summary_text.splitlines():
+    for line in (summary_text or "").splitlines():
         if not line:
             continue
-        # dividir en trozos de ~90 chars para evitar overflow
         while len(line) > 90:
             c.drawString(margin, y, line[:90])
             line = line[90:]
@@ -409,7 +424,6 @@ def create_pdf_bytes(title, summary_text, sentiment_result, chat_history):
     # Chat history
     for m in (chat_history or [])[-100:]:  # limitar
         text = f"{m.get('timestamp','')[:19]} {m.get('sender','')}: {m.get('text','')}"
-        # simple wrapping per 90 chars
         while len(text) > 90:
             c.drawString(margin, y, text[:90])
             text = text[90:]
@@ -511,6 +525,7 @@ def handle_request_summary_email(data):
         # éxito
         emit('summary_status', {'ok': True, 'message': 'Resumen enviado por correo.'}, room=user_id)
     except Exception as e:
+        # log sencillo en consola (puedes mejorar con logger)
         print("Error al generar/enviar summary:", e)
         emit('summary_status', {'ok': False, 'error': str(e)}, room=user_id)
 

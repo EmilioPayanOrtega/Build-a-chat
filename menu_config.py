@@ -395,27 +395,22 @@ menu_config = {
                         "type": "submenu",
                         "submenu": [
                             {
-                                "id": "computacion_plan",
-                                "label": "Plan de estudios",
+                                "id": "computacion_info",
+                                "label": "Informacion ",
                                 "type": "link",
-                                "link": "https://..."
-                            },
-                            {
-                                "id": "computacion_requisitos",
-                                "label": "Requisitos de ingreso",
-                                "type": "link",
-                                "link": "https://..."
+                                "link": "https://www.culiacan.tecnm.mx/posgrados/maestria-en-ciencias-de-la-computacion"
                             },
                             {
                                 "id": "computacion_tutoria",
                                 "label": "Tutoría",
                                 "type": "link",
-                                "link": "https://..."
+                                "link": "https://www.culiacan.tecnm.mx/mcc-tutorias-generacion-2020-2022"
                             }
                         ]
                     }
                     # Repite para los otros posgrados
                 ]
+                
             },
             {
                 "id": "ofe_cle",
@@ -426,19 +421,19 @@ menu_config = {
                         "id": "cle_informes",
                         "label": "Informes CLE",
                         "type": "info",
-                        "text": "Información sobre CLE..."
+                        "text": "Coordinación de Lenguas Extranjeras  Tel. 667-454-0100  Ext. 1270 y 1271  De lunes a viernes  Con horario de 8:00 am- 3:00 p.m.  Juan de Dios Bátiz  310 Pte., Col. Guadalupe, Culiacán, Sinaloa.  Dentro de las instalaciones del Campus Culiacán"
                     },
                     {
                         "id": "cle_programa",
                         "label": "Programa e Inscripciones",
                         "type": "info",
-                        "text": "Información sobre programa e inscripciones..."
+                        "text": "Es un programa de seis niveles con enfoque conversacional. Los estudiantes son introducidos de manera natural en el diálogo de conversación. Evaluados con base en proyectos.  Incluye actividades, canciones, trabajo en equipo, y manualidades que favorecen un buen comienzo en el aprendizaje del idioma inglés. Solicitud de examen de ubicación: Del 16 de Enero al 26 de Enero de 2026.  Aplicación de examen de ubicación: Del 16 de Enero al 27 de Enero de 2026.  Horario de atención: De 09:00 a 13:30 horas. Es necesario agendar cita.  Horarios de clase  De lunes a viernes: De 08:00 a 19:00 horas (según disponibilidad).  Sabatino: De 09:00 a 13:30 horas."
                     },
                     {
                         "id": "cle_facebook",
                         "label": "Página de Facebook",
                         "type": "link",
-                        "link": "https://..."
+                        "link": "https://www.facebook.com/p/Coordinación-De-Lenguas-Extranjeras-Instituto-Tecnológico-de-Culiacán-100057478148166/?locale=es_LA"
                     }
                 ]
             }
@@ -464,25 +459,25 @@ menu_config = {
                         "id": "reglamento",
                         "label": "Reglamento de Estudiantes",
                         "type": "link",
-                        "link": "https://..."
+                        "link": "https://www.culiacan.tecnm.mx/wp-content/uploads/2024/04/Reglamento_de_Estudiantes_del_TecNM.pdf"
                     },
                     {
                         "id": "medicos",
                         "label": "Servicios Médicos",
                         "type": "link",
-                        "link": "https://..."
+                        "link": "https://www.culiacan.tecnm.mx/wp-content/uploads/2024/04/SERVICIOS-MEDICOS-DEL-ITC.pdf"
                     },
                     {
                         "id": "thona",
                         "label": "Seguro THONA",
                         "type": "link",
-                        "link": "https://..."
+                        "link": "https://www.culiacan.tecnm.mx/wp-content/uploads/2024/04/THONA-SEGUROS-2024.pdf"
                     },
                     {
                         "id": "imss",
                         "label": "Seguro IMSS",
                         "type": "link",
-                        "link": "https://..."
+                        "link": "https://www.culiacan.tecnm.mx/wp-content/uploads/2024/04/SEGURO-FACULTATIVO-2024.pdf"
                     }
                 ]
             },
@@ -495,19 +490,19 @@ menu_config = {
                         "id": "cuotas",
                         "label": "Cuotas de servicios",
                         "type": "link",
-                        "link": "https://..."
+                        "link": "https://www.culiacan.tecnm.mx/wp-content/uploads/2025/06/Minuta-de-Cuotas-SEM-115.pdf"
                     },
                     {
                         "id": "horarios_fin",
                         "label": "Horarios de atención",
-                        "type": "link",
-                        "link": "https://..."
+                         "type": "info",
+                        "text": " Horarios de atención en ventanilla bancaria y en correo electrónico.  De lunes a viernes: de 08:00-18:00 h  Correo electrónico: recursosfinancieros@itculiacan.edu.mx"
                     },
                     {
                         "id": "encuesta",
                         "label": "Encuesta de satisfacción",
                         "type": "link",
-                        "link": "https://..."
+                        "link": "https://forms.office.com/Pages/ResponsePage.aspx?id=zIGvrnIJG0eM2jeAB5Arr0PeN4x4Ru5LiOfmrDpbOW1UMldMWFQyUDNJQUk2T1VGRk5IRzcyWFlWRy4u"
                     }
                 ]
             },
@@ -520,25 +515,25 @@ menu_config = {
                         "id": "residencias",
                         "label": "Residencias Profesionales",
                         "type": "link",
-                        "link": "https://..."
+                        "link": "https://www.culiacan.tecnm.mx/residencias-profesionales"
                     },
                     {
                         "id": "requisitos",
                         "label": "Requisitos carta presentación",
                         "type": "link",
-                        "link": "https://..."
+                        "link": "http://culiacan.tecnm.mx/wp-content/uploads/2016/05/REQUISITOS-CARTA-PRESENTACION-RESIDENCIAS-2016.docx"
                     },
                     {
                         "id": "formatos",
                         "label": "Descarga de formatos",
                         "type": "link",
-                        "link": "https://..."
+                        "link": "https://www.culiacan.tecnm.mx/wp-content/uploads/2025/06/FORMATOS-RESIDENCIAS.zip"
                     },
                     {
                         "id": "banco_proyectos",
                         "label": "Banco de proyectos",
                         "type": "link",
-                        "link": "https://..."
+                        "link": "https://www.culiacan.tecnm.mx/wp-content/uploads/2025/05/BANCO-DE-PROYECTOS-AGOSTO-DICIEMBRE-2025-2.pdf"
                     }
                 ]
             }
@@ -548,6 +543,6 @@ menu_config = {
         "id": "menu_map",
         "type": "image",
         "label": "Mapa de instalaciones",
-        "image": "/static/images/mapa.png"
+        "image": "/static/images/Mapa.jpg"
     }
 }
